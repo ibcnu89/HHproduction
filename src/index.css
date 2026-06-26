@@ -1,0 +1,147 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #f0f7ff;
+  --color-primary-100: #e0efff;
+  --color-primary-200: #c9e1ff;
+  --color-primary-300: #a3c9ff;
+  --color-primary-400: #72a5ff;
+  --color-primary-500: #4a85ff;
+  --color-primary-600: #2d65e8;
+  --color-primary-700: #1e4dc4;
+  --color-primary-800: #1b3d9e;
+  --color-primary-900: #1a337d;
+
+  --color-warm-50: #fffbf0;
+  --color-warm-100: #fff7db;
+  --color-warm-200: #ffeeb5;
+  --color-warm-300: #ffe385;
+  --color-warm-400: #ffd652;
+  --color-warm-500: #ffc82b;
+  --color-warm-600: #e8a71a;
+  --color-warm-700: #c48315;
+  --color-warm-800: #9e6714;
+  --color-warm-900: #7f5213;
+
+  --color-sage-50: #f0f7f0;
+  --color-sage-100: #dfeedd;
+  --color-sage-200: #bfdcbd;
+  --color-sage-300: #92c492;
+  --color-sage-400: #68a668;
+  --color-sage-500: #4a8d4a;
+  --color-sage-600: #3a723a;
+  --color-sage-700: #305c30;
+  --color-sage-800: #2a4d2a;
+  --color-sage-900: #254125;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-primary-50);
+    min-height: 100vh;
+  }
+
+  /* Dark mode base styles */
+  .dark body {
+    background-color: #0f172a; /* slate-950 */
+    color: #f1f5f9; /* slate-100 */
+  }
+
+  /* Ensure shimmer works in dark mode */
+  .dark .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-primary-800) 25%,
+      var(--color-primary-900) 50%,
+      var(--color-primary-800) 75%
+    );
+    background-size: 200% 100%;
+  }
+}
+
+@layer utilities {
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-primary-200) 25%,
+      var(--color-primary-100) 50%,
+      var(--color-primary-200) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.2s ease-out;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Settings panel animations */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Smooth transitions for dark mode */
+  * {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 200ms;
+  }
+}
