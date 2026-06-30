@@ -1,21 +1,19 @@
 /**
- * Vercel Serverless Function: Extract Handwriting
- * POST /api/extract
- * Body: { imageBase64, mimeType, gradeLevel, subject, standardsText }
- * Returns: JSON array of extracted questions
+ * Vercel Serverless Function: Extract Custom Rubric (OCR)
+ * POST /api/extract-rubric
+ * Body: { imageBase64, mimeType }
+ * Returns: JSON array of { question_number, correct_answer, points_possible }
  */
 
 export default async function handler(req, res) {
-  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { imageBase64, mimeType, gradeLevel, subject, standardsText } = req.body
+  const { imageBase64, mimeType } = req.body
 
-  // Validate required fields
-  if (!imageBase64 || !mimeType || !gradeLevel || !subject) {
-    return res.status(400).json({ error: 'Missing required fields: imageBase64, mimeType, gradeLevel, subject' })
+  if (!imageBase64 || !mimeType) {
+    return res.status(400).json({ error: 'Missing required fields: imageBase64, mimeType' })
   }
 
   const apiKey = process.env.GEMINI_API_KEY
@@ -23,18 +21,11 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Gemini API key not configured on server' })
   }
 
-  let prompt = 'You are reading a child\'s handwritten homework. Grade level: ' + gradeLevel + '. Subject: ' + subject + '. \n\nTranscribe every question and the child\'s handwritten answer exactly as written, preserving question numbers and structure. If an answer is blank, note it as [blank].\n\n'
-
-  if (standardsText) {
-    prompt += 'Use the following Illinois Learning Standards as your baseline reference when proposing correct answers and point values:\n' + standardsText + '\n\n'
-  }
-
-  prompt += 'Return ONLY a JSON array where each item has:\n{\n  "question_number": "string (e.g., \\"1\\", \\"2a\\", \\"Q3\\")",\n  "question_text": "string - the full question text as visible",\n  "student_answer": "string - exactly what the student wrote"\n}'
+  const prompt = 'You are reading a teacher\'s answer key / rubric document. Transcribe it into a structured rubric.\n\nReturn ONLY a JSON array where each item has:\n{\n  "question_number": "string (e.g., \\"1\\", \\"2a\\", \\"Q3\\")",\n  "correct_answer": "string - the correct answer or expected response",\n  "points_possible": "number - maximum points for this question"\n}\n\nInclude all questions found. If points are not explicitly listed, estimate based on complexity (1-5 points typical).'
 
   try {
     const parts = [{ text: prompt }]
     
-    // Add image data
     parts.unshift({
       inline_data: {
         mime_type: mimeType,
@@ -68,13 +59,11 @@ export default async function handler(req, res) {
       throw new Error('Empty response from Gemini API')
     }
 
-    // Parse JSON from response (handle potential markdown code fences)
     let parsed
     try {
       const jsonText = text.replace(/```json\n?|\n?```/g, '').trim()
       parsed = JSON.parse(jsonText)
     } catch {
-      // Retry once with stricter prompt
       const retryPrompt = prompt + '\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation.'
       const retryParts = [{ text: retryPrompt }, parts[1]]
       
@@ -106,14 +95,13 @@ export default async function handler(req, res) {
       parsed = JSON.parse(retryJsonText)
     }
 
-    // Validate response is an array
     if (!Array.isArray(parsed)) {
       throw new Error('Expected JSON array response from Gemini')
     }
 
     return res.status(200).json(parsed)
   } catch (error) {
-    console.error('Extract handwriting error:', error)
+    console.error('Extract rubric error:', error)
     return res.status(500).json({ error: error.message })
   }
 }

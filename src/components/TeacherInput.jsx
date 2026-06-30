@@ -15,40 +15,61 @@ export default function TeacherInput({
   onGradeClick,
   onRemoveImage,
   onOpenSettings,
+  useCustomRubric,
+  setUseCustomRubric,
+  customRubricImage,
+  customRubricPreview,
+  onCustomRubricImageChange,
+  onRemoveCustomRubric,
+  savedRubrics,
+  onSaveRubric,
+  onSelectSavedRubric,
+  onClearCustomRubric,
+  isExtractingRubric
 }) {
   const fileInputRef = React.useRef(null)
+  const customRubricFileInputRef = React.useRef(null)
   const dragActive = React.useRef(false)
+  const customDragActive = React.useRef(false)
 
-  const handleDrag = (e) => {
+  const handleDrag = (e, isCustom = false) => {
     e.preventDefault()
     e.stopPropagation()
     if (e.type === 'dragenter' || e.type === 'dragover') {
-      dragActive.current = true
+      if (isCustom) customDragActive.current = true
+      else dragActive.current = true
     } else if (e.type === 'dragleave') {
-      dragActive.current = false
+      if (isCustom) customDragActive.current = false
+      else dragActive.current = false
     }
   }
 
-  const handleDrop = (e) => {
+  const handleDrop = (e, isCustom = false) => {
     e.preventDefault()
     e.stopPropagation()
-    dragActive.current = false
+    if (isCustom) customDragActive.current = false
+    else dragActive.current = false
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0]
       if (file.type.startsWith('image/')) {
-        onImageChange({ target: { files: [file] } })
+        if (isCustom) {
+          onCustomRubricImageChange({ target: { files: [file] } })
+        } else {
+          onImageChange({ target: { files: [file] } })
+        }
       }
     }
   }
 
   const handleClickUpload = () => fileInputRef.current?.click()
+  const handleCustomClickUpload = () => customRubricFileInputRef.current?.click()
 
-  const isReady = image && rubric.trim()
+  const isReady = image && (rubric.trim() || (useCustomRubric && customRubricImage))
 
   // Format grade level for display
   const formatGradeLevel = (level) => {
     if (level === 'K') return 'Kindergarten'
-    return `${level} Grade`
+    return level + ' Grade'
   }
 
   return (
@@ -73,7 +94,7 @@ export default function TeacherInput({
         </button>
       </div>
 
-      {/* Image Upload Dropzone */}
+      {/* Homework Image Upload Dropzone */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-2">Homework Image</label>
         <div
@@ -85,10 +106,10 @@ export default function TeacherInput({
               ? 'border-sage-300 bg-sage-50 dark:bg-sage-900/20'
               : 'border-primary-200 hover:border-primary-300 dark:border-slate-600 dark:hover:border-slate-500'
           }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
+          onDragEnter={(e) => handleDrag(e, false)}
+          onDragLeave={(e) => handleDrag(e, false)}
+          onDragOver={(e) => handleDrag(e, false)}
+          onDrop={(e) => handleDrop(e, false)}
           onClick={handleClickUpload}
         >
           <input
@@ -133,18 +154,134 @@ export default function TeacherInput({
         </div>
       </div>
 
-      {/* Answer Key / Rubric */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-2">Answer Key / Rubric</label>
-        <textarea
-          value={rubric}
-          onChange={(e) => onRubricChange(e.target.value)}
-          rows={6}
-          className="w-full px-4 py-3 border border-primary-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent bg-white dark:bg-slate-700 text-primary-900 dark:text-primary-100 resize-y transition-all"
-          placeholder="Paste or type the correct answers and grading notes...&#10;&#10;Example:&#10;Q1: 42 (2 pts)&#10;Q2: 8 (3 pts, partial credit for showing work)&#10;Q3: Essay - check for thesis, evidence, conclusion"
-          disabled={isLoading}
-        />
+      {/* Custom Rubric Toggle */}
+      <div className="mb-4">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={useCustomRubric}
+            onChange={(e) => setUseCustomRubric(e.target.checked)}
+            className="w-4 h-4 text-primary-600 border-primary-300 rounded focus:ring-primary-500 focus:ring-2"
+            disabled={isLoading}
+          />
+          <span className="text-primary-700 dark:text-primary-300 font-medium">Use my own answer key instead</span>
+        </label>
+        <p className="text-xs text-primary-500 dark:text-primary-400 mt-1 ml-7">
+          Skip Illinois standards auto-rubric. Upload your own answer key image for OCR transcription.
+        </p>
       </div>
+
+      {/* Custom Rubric Image Upload (conditional) */}
+      {useCustomRubric && (
+        <div className="mb-6 p-4 border border-primary-200 dark:border-slate-600 rounded-xl bg-primary-50 dark:bg-primary-900/20">
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-2">Upload Your Answer Key</label>
+            <div
+              ref={customRubricFileInputRef}
+              className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
+                customDragActive.current
+                  ? 'border-primary-400 bg-primary-100 dark:bg-primary-900/30'
+                  : customRubricImage
+                  ? 'border-sage-300 bg-sage-50 dark:bg-sage-900/20'
+                  : 'border-primary-200 hover:border-primary-300 dark:border-slate-600 dark:hover:border-slate-500'
+              }`}
+              onDragEnter={(e) => handleDrag(e, true)}
+              onDragLeave={(e) => handleDrag(e, true)}
+              onDragOver={(e) => handleDrag(e, true)}
+              onDrop={(e) => handleDrop(e, true)}
+              onClick={handleCustomClickUpload}
+            >
+              <input
+                type="file"
+                ref={customRubricFileInputRef}
+                accept="image/jpeg,image/png,image/webp"
+                onChange={onCustomRubricImageChange}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                disabled={isLoading || isExtractingRubric}
+              />
+
+              {customRubricPreview ? (
+                <div className="relative max-w-full mx-auto">
+                  <img
+                    src={customRubricPreview}
+                    alt="Uploaded answer key"
+                    className="max-h-48 rounded-lg shadow-md mx-auto"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onRemoveCustomRubric() }}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 text-primary-600 dark:text-primary-400 flex items-center justify-center shadow-lg transition-colors"
+                    aria-label="Remove answer key"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <svg className="w-10 h-10 mx-auto text-primary-300 dark:text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <div>
+                    <p className="text-primary-600 dark:text-primary-400 font-medium">Drag & drop your answer key here</p>
+                    <p className="text-primary-400 dark:text-primary-500 text-sm">or click to browse</p>
+                  </div>
+                  <p className="text-xs text-primary-300 dark:text-primary-600">JPG, PNG, WebP · Max 10MB</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Saved Rubrics Dropdown */}
+          {savedRubrics.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-primary-200 dark:border-slate-600">
+              <label className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-2">
+                Or select a saved rubric
+              </label>
+              <select
+                value=""
+                onChange={(e) => { if (e.target.value) onSelectSavedRubric(e.target.value) }}
+                className="w-full px-4 py-3 border border-primary-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent bg-white dark:bg-slate-700 text-primary-900 dark:text-primary-100 appearance-none transition-colors"
+              >
+                <option value="" disabled>Choose a saved rubric...</option>
+                {savedRubrics.map((rubric) => (
+                  <option key={rubric.id} value={rubric.id}>
+                    {rubric.name} ({rubric.subject} · {rubric.gradeLevel})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Save Rubric Button (shown after OCR) */}
+          {customRubricImage && !isExtractingRubric && (
+            <button
+              type="button"
+              onClick={onSaveRubric}
+              className="mt-4 w-full px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
+              disabled={isExtractingRubric}
+            >
+              Save This Rubric for Reuse
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Answer Key / Rubric (shown when NOT using custom rubric) */}
+      {!useCustomRubric && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-2">Answer Key / Rubric</label>
+          <textarea
+            value={rubric}
+            onChange={(e) => onRubricChange(e.target.value)}
+            rows={6}
+            className="w-full px-4 py-3 border border-primary-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent bg-white dark:bg-slate-700 text-primary-900 dark:text-primary-100 resize-y transition-all"
+            placeholder="Paste or type the correct answers and grading notes...\n\nExample:\nQ1: 42 (2 pts)\nQ2: 8 (3 pts, partial credit for showing work)\nQ3: Essay - check for thesis, evidence, conclusion"
+            disabled={isLoading}
+          />
+        </div>
+      )}
 
       {/* Subject Dropdown */}
       <div className="mb-6">
@@ -164,14 +301,22 @@ export default function TeacherInput({
       {/* Grade Button */}
       <button
         onClick={onGradeClick}
-        disabled={!isReady || isLoading}
+        disabled={!isReady || isLoading || isExtractingRubric}
         className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center justify-center gap-3 ${
-          isReady && !isLoading
+          isReady && !isLoading && !isExtractingRubric
             ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 shadow-lg hover:shadow-xl'
             : 'bg-primary-100 dark:bg-slate-700 text-primary-300 dark:text-primary-600 cursor-not-allowed'
         }`}
       >
-        {isLoading ? (
+        {isExtractingRubric ? (
+          <>
+            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Extracting rubric from image...
+          </>
+        ) : isLoading ? (
           <>
             <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -189,9 +334,15 @@ export default function TeacherInput({
         )}
       </button>
 
-      {!isReady && !isLoading && (
+      {!isReady && !isLoading && !isExtractingRubric && (
         <p className="text-center text-sm text-primary-400 dark:text-primary-500 mt-3">
-          {image ? 'Add an answer key/rubric to enable grading' : 'Upload an image to get started'}
+          {useCustomRubric
+            ? customRubricImage
+              ? 'Click "Grade This Homework" to proceed'
+              : 'Upload your answer key image to enable grading'
+            : image
+            ? 'Add an answer key/rubric to enable grading'
+            : 'Upload an image to get started'}
         </p>
       )}
     </div>
