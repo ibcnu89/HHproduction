@@ -5,6 +5,52 @@
  * Returns: Graded result object
  */
 
+function getStrictnessGuidance(gradeLevel) {
+  const gradeNum = gradeLevel === 'K' ? 0 : parseInt(gradeLevel.replace(/st|nd|rd|th/, ''), 10);
+  
+  if (gradeNum <= 2) {
+    return `STRICTNESS: GENTLE (Grades K-2)
+- Focus on effort and conceptual understanding over mechanical correctness
+- Spelling/grammar errors are expected — do not penalize heavily
+- Handwriting legibility issues are normal — grade what you can decipher
+- Partial credit generously for showing any reasoning or attempt
+- Encouragement should dominate feedback (3:1 positive to constructive ratio)`;
+  } else if (gradeNum <= 5) {
+    return `STRICTNESS: MODERATE (Grades 3-5)
+- Basic spelling of grade-appropriate words should be correct (sight words, common vocabulary)
+- Capitalization and end punctuation expected consistently
+- Math: calculation errors penalized, but credit for correct setup/process
+- Writing: paragraph structure, topic sentences expected
+- Science/Other: accurate terminology for concepts taught at this level
+- Feedback balanced: acknowledge effort, note specific areas to improve`;
+  } else if (gradeNum <= 8) {
+    return `STRICTNESS: FIRM (Grades 6-8)
+- Spelling/grammar: minimal errors expected; common words must be correct
+- Math: calculation accuracy required; partial credit only for clear process with minor arithmetic slip
+- Writing: thesis, evidence, transitions, conclusion structure required
+- Science: precise vocabulary, correct units, logical reasoning
+- Multi-step problems: all steps must be shown and logically connected
+- Feedback direct: clearly identify errors and what mastery looks like`;
+  } else if (gradeNum <= 10) {
+    return `STRICTNESS: HIGH (Grades 9-10)
+- Near-professional mechanics: spelling, grammar, punctuation nearly flawless
+- Math: precision required; correct setup with arithmetic error = minor deduction
+- Writing: sophisticated structure, varied syntax, strong evidence integration
+- Science: technical accuracy, proper notation, justified conclusions
+- Analysis over recall: synthesis, evaluation, original thinking rewarded
+- Feedback specific and standards-referenced; "good effort" insufficient`;
+  } else {
+    return `STRICTNESS: VERY HIGH / COLLEGE-READY (Grades 11-12)
+- Mechanics essentially perfect; errors indicate lack of proofreading
+- Math: rigorous notation, complete logical chain, exact answers expected
+- Writing: college-level argumentation, nuance, counter-argument handling
+- Science/Other: disciplinary conventions, citations, uncertainty acknowledgment
+- Independent insight, critical analysis, and synthesis required for top scores
+- Feedback evaluative: measures against external standards (AP, IB, college rubrics)
+- Grade inflation actively avoided — A range reserved for exceptional work`;
+  }
+}
+
 export default async function handler(req, res) {
   // Only allow POST
   if (req.method !== 'POST') {
@@ -36,6 +82,8 @@ Teacher's answer key / rubric:
 ${rubric}
 
 Grade each question fairly. Be encouraging but accurate.
+
+${getStrictnessGuidance(gradeLevel)}
 
 Return ONLY a JSON object with this exact structure:
 {
