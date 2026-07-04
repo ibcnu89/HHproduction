@@ -64,7 +64,7 @@ export default function TeacherInput({
   const handleClickUpload = () => fileInputRef.current?.click()
   const handleCustomClickUpload = () => customRubricFileInputRef.current?.click()
 
-  const isReady = image && (rubric.trim() || (useCustomRubric && customRubricImage))
+  const isReady = image && (!useCustomRubric || customRubricImage || extractedCustomRubric)
 
   // Format grade level for display
   const formatGradeLevel = (level) => {
@@ -268,16 +268,21 @@ export default function TeacherInput({
         </div>
       )}
 
-      {/* Answer Key / Rubric (shown when NOT using custom rubric) */}
+      {/* Answer Key / Rubric (shown when NOT using custom rubric) — OPTIONAL override */}
       {!useCustomRubric && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-2">Answer Key / Rubric</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-primary-700 dark:text-primary-300">
+              Answer Key / Rubric <span className="text-xs font-normal text-primary-400 dark:text-primary-500">(optional)</span>
+            </label>
+            <span className="text-xs text-primary-400 dark:text-primary-500">Auto-generated from IBSE standards by default</span>
+          </div>
           <textarea
             value={rubric}
             onChange={(e) => onRubricChange(e.target.value)}
             rows={6}
             className="w-full px-4 py-3 border border-primary-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent bg-white dark:bg-slate-700 text-primary-900 dark:text-primary-100 resize-y transition-all"
-            placeholder="Paste or type the correct answers and grading notes...\n\nExample:\nQ1: 42 (2 pts)\nQ2: 8 (3 pts, partial credit for showing work)\nQ3: Essay - check for thesis, evidence, conclusion"
+            placeholder={"Optional: paste your own answer key / grading notes to override the auto-generated rubric...\n\nExample:\nQ1: 42 (2 pts)\nQ2: 8 (3 pts, partial credit for showing work)\nQ3: Essay - check for thesis, evidence, conclusion"}
             disabled={isLoading}
           />
         </div>
@@ -341,7 +346,7 @@ export default function TeacherInput({
               ? 'Click "Grade This Homework" to proceed'
               : 'Upload your answer key image to enable grading'
             : image
-            ? 'Add an answer key/rubric to enable grading'
+            ? 'Ready — auto-grade from IBSE standards (or paste an answer key to override)'
             : 'Upload an image to get started'}
         </p>
       )}

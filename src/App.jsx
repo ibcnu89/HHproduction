@@ -62,7 +62,8 @@ function App() {
 
   const handleGradeClick = async () => {
     if (!image) return
-    if (!useCustomRubric && !rubric.trim()) return
+    // Rubric is now OPTIONAL. Auto-rubric from IBSE standards when missing.
+    // Only block when the teacher flipped the "use my own answer key" toggle but hasn't actually attached one yet.
     if (useCustomRubric && !customRubricImage && !extractedCustomRubric) return
 
     setIsLoading(true)
@@ -72,24 +73,22 @@ function App() {
     try {
       // Extract handwriting from homework image
       const extractedQuestions = await extractHandwriting(image, gradeLevel, subject)
-      
-      let finalRubric = ''
-      
+
+      let finalRubric = null  // null = "let the backend auto-generate from standards"
+
       if (useCustomRubric) {
         if (extractedCustomRubric) {
-          // Use already extracted custom rubric
           finalRubric = JSON.stringify(extractedCustomRubric, null, 2)
         } else if (customRubricImage) {
-          // Extract rubric from uploaded image now
           const customRubricData = await extractCustomRubric(customRubricImage)
           setExtractedCustomRubric(customRubricData)
           finalRubric = JSON.stringify(customRubricData, null, 2)
-          // Prompt to save after extraction
           setShowSaveRubricPrompt(true)
         }
-      } else {
+      } else if (rubric.trim()) {
         finalRubric = rubric
       }
+      // else: leave as null -> backend auto-generates from IBSE standards
 
       // Grade the submission
       const result = await gradeSubmission(extractedQuestions, finalRubric, gradeLevel, subject)

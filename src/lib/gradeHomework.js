@@ -20,7 +20,8 @@ function fileToBase64(file) {
 }
 
 /**
- * Fetch Illinois Learning Standards for grade/subject
+ * Fetch IBSE (Iowa Board of Educational Standards — same data shape as Illinois Learning Standards) for grade/subject.
+ * Returns plain text dump or null if unavailable.
  */
 async function fetchStandards(gradeLevel, subject) {
   try {
@@ -44,20 +45,12 @@ async function fetchStandards(gradeLevel, subject) {
 }
 
 /**
- * Function 1: Extract handwriting from homework image
- * Now calls /api/extract Vercel serverless function
- * @param {File} imageFile - The uploaded image file
- * @param {string} gradeLevel - Grade level (K, 1st, 2nd, 3rd, 4th, 5th, 6th, 7th, 8th, 9th, 10th, 11111th, 12th)
- * @param {string} subject - Subject (Math, Reading, Writing, Science, Other)
- * @returns {Promise<Array>} Array of { question_number, question_text, student_answer }
+ * Function 1: Extract handwriting from homework image.
+ * Calls /api/extract. Pulls standards in so the OCR pass can already anchor correct answers per question type.
  */
 export async function extractHandwriting(imageFile, gradeLevel, subject) {
   const imageBase64 = await fileToBase64(imageFile)
-
-  // Determine mime type from file
   const mimeType = imageFile.type || 'image/jpeg'
-
-  // Fetch Illinois standards to include in prompt
   const standardsText = await fetchStandards(gradeLevel, subject)
 
   const response = await fetch('/api/extract', {
@@ -87,21 +80,24 @@ export async function extractHandwriting(imageFile, gradeLevel, subject) {
 }
 
 /**
- * Function 2: Grade the submission against the rubric
- * Now calls /api/grade Vercel serverless function
- * @param {Array} extractedQuestions - Array from extractHandwriting
- * @param {string} rubric - Teacher's answer key/rubric text
- * @param {string} gradeLevel - Grade level
- * @param {string} subject - Subject
- * @returns {Promise<Object>} { questions: Array, overall: Object }
+ * Function 2: Grade the submission.
+ *
+ * `rubric` is OPTIONAL. When omitted/empty, the grade endpoint auto-generates
+ * the rubric from the IBSE standards anchored to the OCR'd questions.
+ * When provided, it overrides the auto-rubric (teacher answer key wins).
  */
-export async function gradeSubmission(extractedQuestions, rubric, gradeLevel, subject) {
+export async function gradeSubmission(extractedQuestions, rubric, gradeLevel, subject, standardsText = null) {
+  // Always pull the standards so the backend has them, even when we're
+  // letting the teacher key take precedence — useful for context tone.
+  const standards = standardsText || (rubric ? null : await fetchStandards(gradeLevel, subject))
+
   const response = await fetch('/api/grade', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       extractedQuestions,
-      rubric,
+      rubric: rubric || null,
+      standardsText: standards,
       gradeLevel,
       subject
     })
@@ -122,9 +118,8 @@ export async function gradeSubmission(extractedQuestions, rubric, gradeLevel, su
 }
 
 /**
- * Function 3: Extract custom rubric from uploaded image (OCR)
- * @param {File} imageFile - The uploaded rubric image file
- * @returns {Promise<Array>} Array of { question_number, correct_answer, points_possible }
+ * Function 3: Extract custom rubric from uploaded image (OCR).
+ * Used when the teacher opts into "use my own answer key".
  */
 export async function extractCustomRubric(imageFile) {
   const imageBase64 = await fileToBase64(imageFile)

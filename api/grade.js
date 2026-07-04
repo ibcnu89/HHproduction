@@ -1,13 +1,22 @@
 /**
  * Vercel Serverless Function: Grade Submission
  * POST /api/grade
- * Body: { extractedQuestions, rubric, gradeLevel, subject }
- * Returns: Graded result object
+ * Body: {
+ *   extractedQuestions,
+ *   rubric,            // optional. Teacher-provided answer key/notes (free text or JSON array from OCR).
+ *                      // If absent or empty, a rubric is auto-generated from the standards anchored to the OCR'd questions.
+ *   standardsText,     // optional but recommended when rubric is absent.
+ *                      // Plain-text dump of the IBSE standards for (gradeLevel, subject).
+ *   gradeLevel,
+ *   subject
+ * }
+ *
+ * Returns: { questions: [...], overall: { total_points_earned, total_points_possible, letter_grade, encouragement_message } }
  */
 
 function getStrictnessGuidance(gradeLevel) {
   const gradeNum = gradeLevel === 'K' ? 0 : parseInt(gradeLevel.replace(/st|nd|rd|th/, ''), 10);
-  
+
   if (gradeNum <= 2) {
     return `STRICTNESS: GENTLE (Grades K-2)
 - Focus on effort and conceptual understanding over mechanical correctness
@@ -51,45 +60,80 @@ function getStrictnessGuidance(gradeLevel) {
   }
 }
 
+function buildAutoRubricInstructions(gradeLevel, subject, standardsText) {
+  const standardsBlock = standardsText
+    ? `\nSTANDARDS REFERENCE (use these as your rubric backbone — the auto-generated correct answers and point values MUST be defensible against these standards):\n${standardsText}\n`
+    : `\nNo standards were loaded. Fall back to general ${subject} norms for grade ${gradeLevel}.\n`;
+
+  return `RUBRIC MODE: AUTO-GENERATED (no teacher answer key provided)
+
+For each question in the student's submission, you must:
+1. Infer the most likely correct answer using:
+   - The question text from OCR
+   - Grade ${gradeLevel} ${subject} expectations
+   - The standards reference below
+2. Assign points_possible using these per-question heuristics:
+   - Multiple-choice / single number / short fill-in: 1 point
+   - Multi-step math / short constructed response: 2-3 points
+   - Multi-part question (e.g. "2a, 2b, 2c"): list each sub-part; each sub-part 1-2 points
+   - Extended response / short essay (3+ sentences expected): 4-5 points
+3. When a question is ambiguous or under-specified, prefer the simpler answer typical of grade-level classroom work. Bias toward allowing partial credit.
+${standardsBlock}
+In your JSON output, populate "correct_answer" with the inferred answer (so the teacher can review it). Set "points_possible" per the heuristics above. Set "is_correct" and "points_earned" based on how the student's answer compares to the inferred correct answer.`;
+}
+
+function buildAnswerKeyRubricInstructions() {
+  return `RUBRIC MODE: TEACHER-PROVIDED ANSWER KEY
+
+A teacher has supplied an answer key / rubric. Treat it as authoritative for "correct_answer" and "points_possible" per question. Where the key lists grading notes (partial credit, required elements), honor them.`;
+}
+
 export default async function handler(req, res) {
-  // Only allow POST
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { extractedQuestions, rubric, gradeLevel, subject } = req.body
+  const { extractedQuestions, rubric, standardsText, gradeLevel, subject } = req.body;
 
-  // Validate required fields
-  if (!extractedQuestions || !rubric || !gradeLevel || !subject) {
-    return res.status(400).json({ error: 'Missing required fields: extractedQuestions, rubric, gradeLevel, subject' })
+  if (!extractedQuestions || !gradeLevel || !subject) {
+    return res.status(400).json({ error: 'Missing required fields: extractedQuestions, gradeLevel, subject' });
   }
 
   if (!Array.isArray(extractedQuestions)) {
-    return res.status(400).json({ error: 'extractedQuestions must be an array' })
+    return res.status(400).json({ error: 'extractedQuestions must be an array' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'Gemini API key not configured on server' })
+    return res.status(500).json({ error: 'Gemini API key not configured on server' });
   }
 
-  const prompt = `You are a kind, encouraging elementary school teacher. Grade level: ${gradeLevel}. Subject: ${subject}.
+  const hasRubric = typeof rubric === 'string' && rubric.trim().length > 0;
+  const rubricModeBlock = hasRubric
+    ? buildAnswerKeyRubricInstructions()
+    : buildAutoRubricInstructions(gradeLevel, subject, standardsText);
 
-Student's answers:
+  const rubricSection = hasRubric
+    ? `\nTeacher's answer key / rubric (authoritative):\n${rubric}\n`
+    : `\nNo teacher answer key provided. ${standardsText ? 'Generate the rubric from the standards reference above.' : 'Generate the rubric from subject + grade-level norms.'}\n`;
+
+  const prompt = `You are a kind, encouraging teacher. Grade level: ${gradeLevel}. Subject: ${subject}.
+
+Student's answers (from OCR of handwritten homework):
 ${JSON.stringify(extractedQuestions, null, 2)}
+${rubricSection}
 
-Teacher's answer key / rubric:
-${rubric}
-
-Grade each question fairly. Be encouraging but accurate.
+${rubricModeBlock}
 
 ${getStrictnessGuidance(gradeLevel)}
 
 Return ONLY a JSON object with this exact structure:
 {
+  "rubric_mode": "${hasRubric ? 'teacher_key' : 'auto_generated'}",
   "questions": [
     {
       "question_number": "string",
+      "question_text": "string (echo the OCR'd question text verbatim)",
       "student_answer": "string",
       "correct_answer": "string",
       "is_correct": true,
@@ -104,12 +148,12 @@ Return ONLY a JSON object with this exact structure:
     "letter_grade": "string (A+, A, A-, B+, B, B-, C+, C, C-, D, F)",
     "encouragement_message": "string - warm, encouraging message for the student"
   }
-}`
+}`;
 
   try {
-    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
+    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-    const parts = [{ text: prompt }]
+    const parts = [{ text: prompt }];
 
     const response = await fetch(GEMINI_URL, {
       method: 'POST',
@@ -121,29 +165,27 @@ Return ONLY a JSON object with this exact structure:
           maxOutputTokens: 4096,
         }
       })
-    })
+    });
 
     if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Gemini API error: ${response.status} - ${error}`)
+      const error = await response.text();
+      throw new Error(`Gemini API error: ${response.status} - ${error}`);
     }
 
-    const data = await response.json()
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
     if (!text) {
-      throw new Error('Empty response from Gemini API')
+      throw new Error('Empty response from Gemini API');
     }
 
-    // Parse JSON from response (handle potential markdown code fences)
-    let parsed
+    let parsed;
     try {
-      const jsonText = text.replace(/```json\n?|\n?```/g, '').trim()
-      parsed = JSON.parse(jsonText)
+      const jsonText = text.replace(/```json\n?|\n?```/g, '').trim();
+      parsed = JSON.parse(jsonText);
     } catch {
-      // Retry once with stricter prompt
-      const retryPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation.`
-      
+      const retryPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation.`;
+
       const retryResponse = await fetch(GEMINI_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -154,32 +196,31 @@ Return ONLY a JSON object with this exact structure:
             maxOutputTokens: 4096,
           }
         })
-      })
+      });
 
       if (!retryResponse.ok) {
-        const error = await retryResponse.text()
-        throw new Error(`Gemini API retry error: ${retryResponse.status} - ${error}`)
+        const error = await retryResponse.text();
+        throw new Error(`Gemini API retry error: ${retryResponse.status} - ${error}`);
       }
 
-      const retryData = await retryResponse.json()
-      const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
-      
+      const retryData = await retryResponse.json();
+      const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
       if (!retryText) {
-        throw new Error('Empty response from Gemini API on retry')
+        throw new Error('Empty response from Gemini API on retry');
       }
 
-      const retryJsonText = retryText.replace(/```json\n?|\n?```/g, '').trim()
-      parsed = JSON.parse(retryJsonText)
+      const retryJsonText = retryText.replace(/```json\n?|\n?```/g, '').trim();
+      parsed = JSON.parse(retryJsonText);
     }
 
-    // Validate response structure
     if (!parsed.questions || !Array.isArray(parsed.questions) || !parsed.overall) {
-      throw new Error('Invalid response structure from Gemini API')
+      throw new Error('Invalid response structure from Gemini API');
     }
 
-    return res.status(200).json(parsed)
+    return res.status(200).json(parsed);
   } catch (error) {
-    console.error('Grade submission error:', error)
-    return res.status(500).json({ error: error.message })
+    console.error('Grade submission error:', error);
+    return res.status(500).json({ error: error.message });
   }
 }
