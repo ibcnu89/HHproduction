@@ -1,27 +1,29 @@
 ---
 milestone: v1.1
 milestone_name: Authentication & Multi-User
-phase: 1
-phase_name: Database & Infrastructure Setup
-plan: .planning/phases/01-database-infrastructure/PLAN.md
+phase: 2
+phase_name: Email/Password Authentication
+plan: .planning/phases/02-email-password-auth/PLAN.md
 status: completed
-completed_tasks: 6
-total_tasks: 6
+completed_tasks: 7
+total_tasks: 7
 last_updated: 2026-07-08
 ---
 
 ## Current Position
 
-Phase 1 of 6: Database & Infrastructure Setup ✅
-Plan: .planning/phases/01-database-infrastructure/PLAN.md
-Status: Complete — Neon DB provisioned, schema migrated, Vercel env vars live
-Last activity: 2026-07-08 — Phase 1 completed
+Phase 2 of 6: Email/Password Authentication ✅
+Plan: .planning/phases/02-email-password-auth/PLAN.md
+Status: Complete — 5 API endpoints, JWT + bcrypt + cookie auth
+Last activity: 2026-07-08 — Phase 2 completed
+
+⚠️ Vercel CLI token expired — deploy pending `vercel login`
 
 ## Progress
 
 | Metric | Value |
 |--------|-------|
-| Milestone phases | 1 / 6 complete |
+| Milestone phases | 2 / 6 complete |
 | Current phase tasks | 6 / 6 complete |
 | Requirements validated | 0 / 7 |
 
