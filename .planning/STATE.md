@@ -1,29 +1,27 @@
 ---
 milestone: v1.1
 milestone_name: Authentication & Multi-User
-phase: 2
-phase_name: Email/Password Authentication
-plan: .planning/phases/02-email-password-auth/PLAN.md
+phase: 3
+phase_name: Google OAuth Integration
+plan: .planning/phases/03-google-oauth/PLAN.md
 status: completed
-completed_tasks: 7
-total_tasks: 7
+completed_tasks: 5
+total_tasks: 5
 last_updated: 2026-07-08
 ---
 
 ## Current Position
 
-Phase 2 of 6: Email/Password Authentication ✅
-Plan: .planning/phases/02-email-password-auth/PLAN.md
-Status: Complete — 5 API endpoints, JWT + bcrypt + cookie auth
-Last activity: 2026-07-08 — Phase 2 completed
-
-⚠️ Vercel CLI token expired — deploy pending `vercel login`
+Phase 3 of 6: Google OAuth Integration ✅
+Plan: .planning/phases/03-google-oauth/PLAN.md
+Status: Complete — Google OAuth redirect + callback live, account linking works
+Last activity: 2026-07-08 — Phase 3 completed
 
 ## Progress
 
 | Metric | Value |
 |--------|-------|
-| Milestone phases | 2 / 6 complete |
+| Milestone phases | 3 / 6 complete |
 | Current phase tasks | 6 / 6 complete |
 | Requirements validated | 0 / 7 |
 
