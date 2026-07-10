@@ -7,6 +7,7 @@ import ResultsPanel from './components/ResultsPanel';
 import Header from './components/Header';
 import SettingsPanel from './components/SettingsPanel';
 import AuthPage from './components/AuthPage';
+import AccountSettings from './components/AccountSettings';
 
 function GradingApp() {
   const { user, logout: authLogout } = useAuth();
@@ -48,6 +49,7 @@ function GradingApp() {
   const [gradingResult, setGradingResult] = useState(null);
   const [error, setError] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
 
   // Custom rubric state
   const [useCustomRubric, setUseCustomRubric] = useState(false);
@@ -201,10 +203,12 @@ function GradingApp() {
 
   const openSettings = () => setIsSettingsOpen(true);
   const closeSettings = () => setIsSettingsOpen(false);
+  const openAccountSettings = () => setIsAccountSettingsOpen(true);
+  const closeAccountSettings = () => setIsAccountSettingsOpen(false);
 
   return (
     <div className="min-h-screen bg-primary-50 dark:bg-slate-900 transition-colors duration-200">
-      <Header onOpenSettings={openSettings} />
+      <Header onOpenSettings={openSettings} onOpenAccountSettings={openAccountSettings} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           <TeacherInput
@@ -255,6 +259,9 @@ function GradingApp() {
           onDarkModeChange={setDarkMode}
           onClose={closeSettings}
         />
+      )}
+      {isAccountSettingsOpen && (
+        <AccountSettings onClose={closeAccountSettings} />
       )}
     </div>
   );

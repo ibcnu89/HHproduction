@@ -1,29 +1,29 @@
 ---
 milestone: v1.1
 milestone_name: Authentication & Multi-User
-phase: 5
-phase_name: Frontend Auth Integration
-plan: .planning/phases/05-frontend-auth/PLAN.md
+phase: 6
+phase_name: Polish & Optional Features
+plan: .planning/phases/06-polish/PLAN.md
 status: completed
-completed_tasks: 7
-total_tasks: 7
+completed_tasks: 6
+total_tasks: 6
 last_updated: 2026-07-10
 ---
 
 ## Current Position
 
-Phase 5 of 6: Frontend Auth Integration ✅
-Plan: .planning/phases/05-frontend-auth/PLAN.md
-Status: Complete — AuthContext, login/register forms, Google OAuth button, user menu, 401 auto-refresh
-Last activity: 2026-07-10 — Phase 5 completed
+Phase 6 of 6: Polish & Optional Features ✅
+Plan: .planning/phases/06-polish/PLAN.md
+Status: Complete — Password reset, account settings, remember me, unlink Google
+Last activity: 2026-07-10 — Phase 6 completed, milestone v1.1 done
 
 ## Progress
 
 | Metric | Value |
 |--------|-------|
-| Milestone phases | 5 / 6 complete |
-| Current phase tasks | 7 / 7 complete |
-| Requirements validated | 2 / 7 (AUTH-06, AUTH-07) |
+| Milestone phases | 6 / 6 complete |
+| Current phase tasks | 6 / 6 complete |
+| Requirements validated | 2 / 7 (AUTH-06, AUTH-07) + 4 new features |
 
 ## Accumulated Context
 
@@ -35,6 +35,8 @@ Last activity: 2026-07-10 — Phase 5 completed
 - Static standards endpoint intentionally public (no API cost, no user data)
 - Google OAuth via popup window (avoids full redirect from SPA)
 - 401 → refresh → retry pattern (handles expired access tokens transparently)
+- Password reset tokens returned directly in API response (no SMTP yet)
+- Account settings slide-out panel matches SettingsPanel UX pattern
 
 ### Live Infrastructure
 - Neon PostgreSQL: ep-late-fire-ai9hnesg (pooled URL in Vercel)
@@ -47,4 +49,4 @@ Last activity: 2026-07-10 — Phase 5 completed
 None.
 
 ### Next
-Phase 6 — Polish & Optional Features (password reset, account settings, "remember me", deployment hardening)
+Phase 7 — Stripe Subscription System (design needed: $19.99/mo, 7-day trial for new users)
