@@ -1,38 +1,40 @@
 ---
 milestone: v1.1
 milestone_name: Authentication & Multi-User
-phase: 4
-phase_name: API Protection Middleware
-plan: .planning/phases/04-api-protection/PLAN.md
+phase: 5
+phase_name: Frontend Auth Integration
+plan: .planning/phases/05-frontend-auth/PLAN.md
 status: completed
-completed_tasks: 4
-total_tasks: 4
+completed_tasks: 7
+total_tasks: 7
 last_updated: 2026-07-10
 ---
 
 ## Current Position
 
-Phase 4 of 6: API Protection Middleware ✅
-Plan: .planning/phases/04-api-protection/PLAN.md
-Status: Complete — requireAuth middleware applied to all 3 grading endpoints
-Last activity: 2026-07-10 — Phase 4 completed
+Phase 5 of 6: Frontend Auth Integration ✅
+Plan: .planning/phases/05-frontend-auth/PLAN.md
+Status: Complete — AuthContext, login/register forms, Google OAuth button, user menu, 401 auto-refresh
+Last activity: 2026-07-10 — Phase 5 completed
 
 ## Progress
 
 | Metric | Value |
 |--------|-------|
-| Milestone phases | 4 / 6 complete |
-| Current phase tasks | 4 / 4 complete |
-| Requirements validated | 1 / 7 (AUTH-06) |
+| Milestone phases | 5 / 6 complete |
+| Current phase tasks | 7 / 7 complete |
+| Requirements validated | 2 / 7 (AUTH-06, AUTH-07) |
 
 ## Accumulated Context
 
 ### Key Decisions
 - Neon PostgreSQL for database (generous free tier, serverless)
 - Custom JWT + bcrypt for auth (no vendor lock-in)
-- HTTP-only Secure cookies for token storage
+- HTTP-only Secure cookies for token storage (XSS-resistant)
 - Gemini 3.1 Flash-Lite (switched from 2.5 flash due to Google deprecation)
 - Static standards endpoint intentionally public (no API cost, no user data)
+- Google OAuth via popup window (avoids full redirect from SPA)
+- 401 → refresh → retry pattern (handles expired access tokens transparently)
 
 ### Live Infrastructure
 - Neon PostgreSQL: ep-late-fire-ai9hnesg (pooled URL in Vercel)
@@ -45,4 +47,4 @@ Last activity: 2026-07-10 — Phase 4 completed
 None.
 
 ### Next
-Phase 5 — Frontend Auth Integration (AuthContext, login/register forms, protected routes, user menu)
+Phase 6 — Polish & Optional Features (password reset, account settings, "remember me", deployment hardening)
