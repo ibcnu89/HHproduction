@@ -1,29 +1,29 @@
 ---
 milestone: v1.1
 milestone_name: Authentication & Multi-User
-phase: 3
-phase_name: Google OAuth Integration
-plan: .planning/phases/03-google-oauth/PLAN.md
+phase: 4
+phase_name: API Protection Middleware
+plan: .planning/phases/04-api-protection/PLAN.md
 status: completed
-completed_tasks: 5
-total_tasks: 5
-last_updated: 2026-07-08
+completed_tasks: 4
+total_tasks: 4
+last_updated: 2026-07-10
 ---
 
 ## Current Position
 
-Phase 3 of 6: Google OAuth Integration ✅
-Plan: .planning/phases/03-google-oauth/PLAN.md
-Status: Complete — Google OAuth redirect + callback live, account linking works
-Last activity: 2026-07-08 — Phase 3 completed
+Phase 4 of 6: API Protection Middleware ✅
+Plan: .planning/phases/04-api-protection/PLAN.md
+Status: Complete — requireAuth middleware applied to all 3 grading endpoints
+Last activity: 2026-07-10 — Phase 4 completed
 
 ## Progress
 
 | Metric | Value |
 |--------|-------|
-| Milestone phases | 3 / 6 complete |
-| Current phase tasks | 6 / 6 complete |
-| Requirements validated | 0 / 7 |
+| Milestone phases | 4 / 6 complete |
+| Current phase tasks | 4 / 4 complete |
+| Requirements validated | 1 / 7 (AUTH-06) |
 
 ## Accumulated Context
 
@@ -31,14 +31,18 @@ Last activity: 2026-07-08 — Phase 3 completed
 - Neon PostgreSQL for database (generous free tier, serverless)
 - Custom JWT + bcrypt for auth (no vendor lock-in)
 - HTTP-only Secure cookies for token storage
+- Gemini 3.1 Flash-Lite (switched from 2.5 flash due to Google deprecation)
+- Static standards endpoint intentionally public (no API cost, no user data)
 
 ### Live Infrastructure
 - Neon PostgreSQL: ep-late-fire-ai9hnesg (pooled URL in Vercel)
 - Tables: users, sessions (verified via psql)
-- Vercel env vars: DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, COOKIE_DOMAIN
+- Vercel env vars: DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, COOKIE_DOMAIN, GEMINI_API_KEY
+- Vercel project: hhproduction (ibcnu89/HHproduction)
+- Production URL: https://hhproduction.vercel.app
 
 ### Blockers
 None.
 
 ### Next
-Phase 2 — Email/Password auth endpoints (/api/auth/register, /api/auth/login, /api/auth/logout, /api/auth/refresh, /api/auth/me)
+Phase 5 — Frontend Auth Integration (AuthContext, login/register forms, protected routes, user menu)

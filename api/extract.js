@@ -5,11 +5,16 @@
  * Returns: JSON array of extracted questions
  */
 
+import { requireAuth } from '../lib/auth.js';
+
 export default async function handler(req, res) {
   // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+
+  const user = requireAuth(req, res);
+  if (!user) return;
 
   const { imageBase64, mimeType, gradeLevel, subject, standardsText } = req.body
 

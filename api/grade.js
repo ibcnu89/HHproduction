@@ -14,6 +14,8 @@
  * Returns: { questions: [...], overall: { total_points_earned, total_points_possible, letter_grade, encouragement_message } }
  */
 
+import { requireAuth } from '../lib/auth.js';
+
 function getStrictnessGuidance(gradeLevel) {
   const gradeNum = gradeLevel === 'K' ? 0 : parseInt(gradeLevel.replace(/st|nd|rd|th/, ''), 10);
 
@@ -92,6 +94,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const user = requireAuth(req, res);
+  if (!user) return;
 
   const { extractedQuestions, rubric, standardsText, gradeLevel, subject } = req.body;
 
