@@ -38,14 +38,24 @@ export default async function handler(req, res) {
   const client = await getClient();
 
   try {
-    // Check if email already exists
+    // Check if email already exists — and HOW it exists
     const existing = await client.query(
-      'SELECT id FROM users WHERE email = $1',
+      'SELECT id, google_id FROM users WHERE email = $1',
       [emailTrimmed]
     );
 
     if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'An account with this email already exists' });
+      const existingUser = existing.rows[0];
+      if (existingUser.google_id) {
+        return res.status(409).json({
+          error: 'This email is already registered via Google. Please sign in with Google instead.',
+          code: 'google_linked',
+        });
+      }
+      return res.status(409).json({
+        error: 'An account with this email already exists. Please sign in or reset your password.',
+        code: 'email_exists',
+      });
     }
 
     // Hash password

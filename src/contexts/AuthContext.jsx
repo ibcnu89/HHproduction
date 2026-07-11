@@ -90,84 +90,30 @@ export function AuthProvider({ children }) {
   }, [fetchUser]);
 
   /**
-   * Sign in with Google via popup.
-   * Opens /api/auth/google → Google consent → callback sets cookies.
-   * Polls for cookie presence by calling /api/auth/me every 500ms.
+   * Sign in with Google via full-page redirect (no popup).
+   *
+   * Flow:
+   *  1. Save the current URL so we can return after auth
+   *  2. Redirect the main window to /api/auth/google?redirect=<current-url>
+   *  3. User goes through Google's OAuth flow on accounts.google.com
+   *  4. Google redirects to /api/auth/google/callback (sets cookies)
+   *  5. Callback redirects to the frontend with the saved return URL
+   *  6. Frontend loads, AuthProvider fetches /me, finds user — done
+   *
+   * This is much more reliable than popup-based OAuth on mobile,
+   * where popups often freeze or Chrome kills them.
    */
   const loginWithGoogle = useCallback(async () => {
-    const width = 500;
-    const height = 600;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
+    // Save current path so the callback can redirect back here
+    const returnPath = window.location.pathname + window.location.search;
+    const redirectParam = encodeURIComponent(returnPath);
 
-    const popup = window.open(
-      '/api/auth/google',
-      'google-login',
-      `width=${width},height=${height},left=${left},top=${top}`
-    );
+    // Full-page redirect to the Google OAuth flow
+    window.location.href = `/api/auth/google?redirect=${redirectParam}`;
 
-    if (!popup) {
-      throw new Error('Popup blocked. Please allow popups for this site.');
-    }
-
-    /**
-     * Try to fetch /me with retries and backoff — critical for weak connections.
-     * After the popup closes, cookies may be set but the network may still be
-     * recovering. We retry up to 3 times with increasing delays.
-     */
-    const tryFetchUser = async (maxRetries = 3) => {
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          const res = await fetch('/api/auth/me', { credentials: 'include' });
-          if (res.ok) {
-            const data = await res.json();
-            setUser(data.user || data);
-            return true;
-          }
-          // 401/403 — cookies not set, auth didn't complete
-          if (res.status === 401 || res.status === 403) {
-            return false;
-          }
-          // Other errors (5xx, network) — retry
-          if (attempt < maxRetries) {
-            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
-          }
-        } catch {
-          // Network error — retry
-          if (attempt < maxRetries) {
-            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
-          }
-        }
-      }
-      return false;
-    };
-
-    // Poll for popup close, then retry /me with backoff
-    return new Promise((resolve, reject) => {
-      const poll = setInterval(async () => {
-        if (popup.closed) {
-          clearInterval(poll);
-
-          // Give the browser a brief moment to finalize cookie writes
-          await new Promise(r => setTimeout(r, 300));
-
-          const success = await tryFetchUser();
-
-          if (success) {
-            resolve();
-          } else {
-            reject(new Error('Google sign-in was cancelled or failed'));
-          }
-        }
-      }, 500);
-
-      // Safety timeout (2 minutes)
-      setTimeout(() => {
-        clearInterval(poll);
-        if (!popup.closed) popup.close();
-        reject(new Error('Google sign-in timed out'));
-      }, 120000);
-    });
+    // Never resolves — the page unloads. The return from Google
+    // triggers a fresh page load where AuthProvider picks up the session.
+    return new Promise(() => {}); // hangs forever (intentional) — page will reload
   }, []);
 
   /**

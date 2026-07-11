@@ -155,6 +155,7 @@ export default function AuthPage() {
   const [name, setName] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null); // success message banner
   const [busy, setBusy] = useState(false);
   const [resetToken, setResetToken] = useState(null);
 
@@ -175,26 +176,44 @@ export default function AuthPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     const validationError = validate();
     if (validationError) { setError(validationError); return; }
     setBusy(true);
     try {
       if (isRegister) {
         await register(name, email, password);
+        // Registration succeeded — show a brief success banner before auth redirect
+        setSuccess('Account created! Welcome to HomeworkHelper.');
+        // AuthContext already fetched user — App will switch to GradingApp on next render.
+        // Keep the success banner visible briefly; the transition is handled by App.jsx.
       } else {
-        // Pass remember_me to the login endpoint
         await login(email, password, rememberMe);
       }
     } catch (err) {
-      setError(err.message);
+      // Parse structured error codes from register endpoint
+      const msg = err.message;
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed.code === 'google_linked') {
+          setError('This email is already registered via Google. Please sign in with Google instead.');
+        } else if (parsed.code === 'email_exists') {
+          setError('An account with this email already exists. Please sign in or reset your password.');
+        } else {
+          setError(parsed.error || msg);
+        }
+      } catch {
+        setError(msg);
+      }
     } finally { setBusy(false); }
   };
 
   const handleGoogle = async () => {
-    setError(null); setBusy(true);
-    try { await loginWithGoogle(); }
-    catch (err) { setError(err.message); }
-    finally { setBusy(false); }
+    setError(null);
+    setSuccess(null);
+    // Redirect-based flow — page will navigate away immediately.
+    // No need to set busy=true since the page unloads.
+    loginWithGoogle(); // redirects the browser, never throws
   };
 
   const handleGotResetToken = (token) => {
@@ -228,9 +247,9 @@ export default function AuthPage() {
           {/* Tabs (only for login/register — hide on forgot/reset) */}
           {(isLogin || isRegister) && (
             <div className="flex mb-6 border-b border-primary-100 dark:border-slate-700">
-              <button type="button" onClick={() => { setMode('login'); setError(null); }}
+              <button type="button" onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
                 className={`flex-1 pb-3 text-sm font-semibold transition-colors border-b-2 ${isLogin ? 'border-primary-500 text-primary-700 dark:text-primary-300' : 'border-transparent text-primary-400 dark:text-primary-500 hover:text-primary-600 dark:hover:text-primary-400'}`}>Sign In</button>
-              <button type="button" onClick={() => { setMode('register'); setError(null); }}
+              <button type="button" onClick={() => { setMode('register'); setError(null); setSuccess(null); }}
                 className={`flex-1 pb-3 text-sm font-semibold transition-colors border-b-2 ${isRegister ? 'border-primary-500 text-primary-700 dark:text-primary-300' : 'border-transparent text-primary-400 dark:text-primary-500 hover:text-primary-600 dark:hover:text-primary-400'}`}>Create Account</button>
             </div>
           )}
@@ -250,6 +269,16 @@ export default function AuthPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Success Banner (registration complete, etc.) */}
+          {success && (
+            <div className="mb-4 p-3 rounded-lg bg-sage-50 dark:bg-sage-900/30 border border-sage-200 dark:border-sage-800 text-sage-700 dark:text-sage-300 text-sm flex items-start gap-2">
+              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{success}</span>
             </div>
           )}
 
