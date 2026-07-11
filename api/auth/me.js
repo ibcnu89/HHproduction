@@ -4,8 +4,8 @@
  * Used by the frontend to check auth state on page load / refresh.
  */
 
-import { verifyAccessToken } from '../lib/jwt.js';
-import { getCookie } from '../lib/cookies.js';
+import { verifyAccessToken } from '../../lib/jwt.js';
+import { getCookie } from '../../lib/cookies.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

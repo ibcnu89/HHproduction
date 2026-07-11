@@ -5,9 +5,9 @@
  * Reads refresh_token cookie to identify the session.
  */
 
-import { getClient } from '../lib/db.js';
-import { verifyRefreshToken } from '../lib/jwt.js';
-import { getCookie, clearAuthCookies } from '../lib/cookies.js';
+import { getClient } from '../../lib/db.js';
+import { verifyRefreshToken } from '../../lib/jwt.js';
+import { getCookie, clearAuthCookies } from '../../lib/cookies.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

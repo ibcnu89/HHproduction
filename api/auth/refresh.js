@@ -6,9 +6,9 @@
  * then deletes old session + creates new one (rotation prevents replay).
  */
 
-import { getClient } from '../lib/db.js';
-import { verifyRefreshToken, createAccessToken, createRefreshToken } from '../lib/jwt.js';
-import { setAccessTokenCookie, setRefreshTokenCookie, getCookie, clearAuthCookies } from '../lib/cookies.js';
+import { getClient } from '../../lib/db.js';
+import { verifyRefreshToken, createAccessToken, createRefreshToken } from '../../lib/jwt.js';
+import { setAccessTokenCookie, setRefreshTokenCookie, getCookie, clearAuthCookies } from '../../lib/cookies.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

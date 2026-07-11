@@ -6,10 +6,10 @@
  * Body: { email, password, name? }
  */
 
-import { getClient } from '../lib/db.js';
-import { hashPassword, validatePasswordStrength } from '../lib/password.js';
-import { createAccessToken, createRefreshToken } from '../lib/jwt.js';
-import { setAccessTokenCookie, setRefreshTokenCookie } from '../lib/cookies.js';
+import { getClient } from '../../lib/db.js';
+import { hashPassword, validatePasswordStrength } from '../../lib/password.js';
+import { createAccessToken, createRefreshToken } from '../../lib/jwt.js';
+import { setAccessTokenCookie, setRefreshTokenCookie } from '../../lib/cookies.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
