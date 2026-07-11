@@ -110,24 +110,52 @@ export function AuthProvider({ children }) {
       throw new Error('Popup blocked. Please allow popups for this site.');
     }
 
-    // Poll for session cookie until popup closes or we get a user
+    /**
+     * Try to fetch /me with retries and backoff — critical for weak connections.
+     * After the popup closes, cookies may be set but the network may still be
+     * recovering. We retry up to 3 times with increasing delays.
+     */
+    const tryFetchUser = async (maxRetries = 3) => {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await fetch('/api/auth/me', { credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            setUser(data.user || data);
+            return true;
+          }
+          // 401/403 — cookies not set, auth didn't complete
+          if (res.status === 401 || res.status === 403) {
+            return false;
+          }
+          // Other errors (5xx, network) — retry
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          }
+        } catch {
+          // Network error — retry
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          }
+        }
+      }
+      return false;
+    };
+
+    // Poll for popup close, then retry /me with backoff
     return new Promise((resolve, reject) => {
       const poll = setInterval(async () => {
         if (popup.closed) {
           clearInterval(poll);
-          // Popup closed — try one final /me fetch
-          await fetchUser();
-          // Check if we got a user
-          try {
-            const res = await fetch('/api/auth/me', { credentials: 'include' });
-            if (res.ok) {
-              const data = await res.json();
-              setUser(data.user || data);
-              resolve();
-            } else {
-              reject(new Error('Google sign-in was cancelled or failed'));
-            }
-          } catch {
+
+          // Give the browser a brief moment to finalize cookie writes
+          await new Promise(r => setTimeout(r, 300));
+
+          const success = await tryFetchUser();
+
+          if (success) {
+            resolve();
+          } else {
             reject(new Error('Google sign-in was cancelled or failed'));
           }
         }
@@ -140,7 +168,7 @@ export function AuthProvider({ children }) {
         reject(new Error('Google sign-in timed out'));
       }, 120000);
     });
-  }, [fetchUser]);
+  }, []);
 
   /**
    * Logout: clear server cookies + reset local state.
