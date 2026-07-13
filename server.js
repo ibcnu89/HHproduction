@@ -46,6 +46,10 @@ const RAILWAY_PUBLIC_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN || process.env.R
 const FRONTEND_URL = `https://${RAILWAY_PUBLIC_DOMAIN}`;
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
 
+// NOTE: COOKIE_DOMAIN is no longer used in cookie options (see lib/cookies.js).
+// Keeping the env var for backward compatibility but cookies now bind to exact origin.
+const _cookieDomainUnused = COOKIE_DOMAIN;
+
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const REDIRECT_URI = `${FRONTEND_URL}/api/auth/google/callback`;
 
