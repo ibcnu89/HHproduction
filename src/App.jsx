@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { BillingProvider, useBilling } from './contexts/BillingContext';
 import { extractHandwriting, gradeSubmission, extractCustomRubric } from './lib/gradeHomework';
 import { getAllRubrics, saveRubric, getRubric } from './lib/rubricStorage';
 import TeacherInput from './components/TeacherInput';
@@ -8,9 +9,11 @@ import Header from './components/Header';
 import SettingsPanel from './components/SettingsPanel';
 import AuthPage from './components/AuthPage';
 import AccountSettings from './components/AccountSettings';
+import { BillingStatus } from './components/BillingStatus';
 
 function GradingApp() {
   const { user, logout: authLogout } = useAuth();
+  const { hasAccess, isTrialing, isActive, loading: billingLoading, subscribe, openPortal } = useBilling();
 
   // Initialize state from localStorage
   const [gradeLevel, setGradeLevel] = useState(() =>
@@ -211,42 +214,50 @@ function GradingApp() {
       <Header onOpenSettings={openSettings} onOpenAccountSettings={openAccountSettings} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-          <TeacherInput
-            image={image}
-            imagePreview={imagePreview}
-            rubric={rubric}
-            gradeLevel={gradeLevel}
-            subject={subject}
-            isLoading={isLoading}
-            onImageChange={handleImageChange}
-            onRubricChange={handleRubricChange}
-            onSubjectChange={setSubject}
-            onGradeClick={handleGradeClick}
-            onRemoveImage={removeImage}
-            onOpenSettings={openSettings}
-            useCustomRubric={useCustomRubric}
-            setUseCustomRubric={setUseCustomRubric}
-            customRubricImage={customRubricImage}
-            customRubricPreview={customRubricPreview}
-            onCustomRubricImageChange={handleCustomRubricImageChange}
-            onRemoveCustomRubric={removeCustomRubric}
-            savedRubrics={savedRubrics}
-            onSaveRubric={handleSaveRubric}
-            onSelectSavedRubric={handleSelectSavedRubric}
-            onClearCustomRubric={handleClearCustomRubric}
-            isExtractingRubric={isExtractingRubric}
-            newRubricName={newRubricName}
-            setNewRubricName={setNewRubricName}
-            showSaveRubricPrompt={showSaveRubricPrompt}
-            setShowSaveRubricPrompt={setShowSaveRubricPrompt}
-            extractedCustomRubric={extractedCustomRubric}
-          />
-          <ResultsPanel
-            isLoading={isLoading}
-            gradingResult={gradingResult}
-            error={error}
-            onReset={handleGradeAnother}
-          />
+          {hasAccess ? (
+            <>
+              <TeacherInput
+                image={image}
+                imagePreview={imagePreview}
+                rubric={rubric}
+                gradeLevel={gradeLevel}
+                subject={subject}
+                isLoading={isLoading}
+                onImageChange={handleImageChange}
+                onRubricChange={handleRubricChange}
+                onSubjectChange={setSubject}
+                onGradeClick={handleGradeClick}
+                onRemoveImage={removeImage}
+                onOpenSettings={openSettings}
+                useCustomRubric={useCustomRubric}
+                setUseCustomRubric={setUseCustomRubric}
+                customRubricImage={customRubricImage}
+                customRubricPreview={customRubricPreview}
+                onCustomRubricImageChange={handleCustomRubricImageChange}
+                onRemoveCustomRubric={removeCustomRubric}
+                savedRubrics={savedRubrics}
+                onSaveRubric={handleSaveRubric}
+                onSelectSavedRubric={handleSelectSavedRubric}
+                onClearCustomRubric={handleClearCustomRubric}
+                isExtractingRubric={isExtractingRubric}
+                newRubricName={newRubricName}
+                setNewRubricName={setNewRubricName}
+                showSaveRubricPrompt={showSaveRubricPrompt}
+                setShowSaveRubricPrompt={setShowSaveRubricPrompt}
+                extractedCustomRubric={extractedCustomRubric}
+              />
+              <ResultsPanel
+                isLoading={isLoading}
+                gradingResult={gradingResult}
+                error={error}
+                onReset={handleGradeAnother}
+              />
+            </>
+          ) : (
+            <div className="lg:col-span-2">
+              <BillingStatus />
+            </div>
+          )}
         </div>
       </main>
       {isSettingsOpen && (
@@ -300,7 +311,9 @@ function App() {
 export default function WrappedApp() {
   return (
     <AuthProvider>
-      <App />
+      <BillingProvider>
+        <App />
+      </BillingProvider>
     </AuthProvider>
   );
 }

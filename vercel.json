@@ -4,5 +4,10 @@
     { "source": "/api/auth/(.*)", "destination": "/api/auth/index" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/billing/webhook.js": {
+      "rawBody": true
+    }
+  }
 }

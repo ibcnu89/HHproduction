@@ -767,6 +767,188 @@ app.post('/api/auth/unlink-google', async (req, res) => {
   }
 });
 
+// ── Billing / Subscription Endpoints ──────────────────────────────────
+
+// POST /api/billing/create-checkout-session — Start a new subscription with 7-day trial
+app.post('/api/billing/create-checkout-session', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const Stripe = (await import('stripe')).default;
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia',
+  });
+
+  const client = await getClient();
+  try {
+    // Check if user already has a Stripe customer
+    const userResult = await client.query(
+      'SELECT stripe_customer_id, subscription_status, stripe_subscription_id FROM users WHERE id = $1',
+      [user.id]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const dbUser = userResult.rows[0];
+
+    // If user already has an active/trialing subscription, redirect to portal
+    if (dbUser.subscription_status === 'active' || dbUser.subscription_status === 'trialing') {
+      return res.status(400).json({
+        error: 'You already have an active subscription. Use the billing portal to manage it.',
+        code: 'SUBSCRIPTION_EXISTS',
+      });
+    }
+
+    let customerId = dbUser.stripe_customer_id;
+
+    // Create Stripe customer if needed
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name || user.email.split('@')[0],
+        metadata: { user_id: user.id },
+      });
+      customerId = customer.id;
+
+      await client.query(
+        'UPDATE users SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
+        [customerId, user.id]
+      );
+    }
+
+    // Get the price ID from env
+    const priceId = process.env.STRIPE_PRICE_ID;
+    if (!priceId) {
+      console.error('STRIPE_PRICE_ID not configured');
+      return res.status(500).json({ error: 'Billing not configured' });
+    }
+
+    // Create Checkout Session with 7-day trial
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: { user_id: user.id },
+      },
+      success_url: `${process.env.APP_URL}/settings?billing=success`,
+      cancel_url: `${process.env.APP_URL}/settings?billing=canceled`,
+      metadata: { user_id: user.id },
+      allow_promotion_codes: false,
+    });
+
+    return res.status(200).json({ url: session.url });
+  } catch (error) {
+    console.error('Create checkout session error:', error);
+    return res.status(500).json({ error: 'Failed to create checkout session' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/billing/portal-session — Open Stripe Billing Portal
+app.post('/api/billing/portal-session', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const Stripe = (await import('stripe')).default;
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia',
+  });
+
+  const client = await getClient();
+  try {
+    const userResult = await client.query(
+      'SELECT stripe_customer_id FROM users WHERE id = $1',
+      [user.id]
+    );
+
+    if (userResult.rowCount === 0 || !userResult.rows[0].stripe_customer_id) {
+      return res.status(404).json({ error: 'No billing account found. Subscribe first.' });
+    }
+
+    const customerId = userResult.rows[0].stripe_customer_id;
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${process.env.APP_URL}/settings`,
+    });
+
+    return res.status(200).json({ url: session.url });
+  } catch (error) {
+    console.error('Create portal session error:', error);
+    return res.status(500).json({ error: 'Failed to open billing portal' });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/billing/status — Get current subscription status
+app.get('/api/billing/status', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const client = await getClient();
+  try {
+    const userResult = await client.query(
+      `SELECT 
+         stripe_customer_id,
+         stripe_subscription_id,
+         stripe_subscription_status,
+         stripe_price_id,
+         stripe_current_period_end,
+         stripe_trial_end,
+         subscription_status
+       FROM users WHERE id = $1`,
+      [user.id]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const u = userResult.rows[0];
+
+    // Compute trial days remaining if in trial
+    let trialDaysRemaining = null;
+    if (u.subscription_status === 'trialing' && u.stripe_trial_end) {
+      const now = new Date();
+      const trialEnd = new Date(u.stripe_trial_end);
+      const diffMs = trialEnd - now;
+      if (diffMs > 0) {
+        trialDaysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      } else {
+        trialDaysRemaining = 0;
+      }
+    }
+
+    return res.status(200).json({
+      subscription_status: u.subscription_status,
+      stripe_subscription_status: u.stripe_subscription_status,
+      stripe_subscription_id: u.stripe_subscription_id,
+      stripe_price_id: u.stripe_price_id,
+      current_period_end: u.stripe_current_period_end,
+      trial_end: u.stripe_trial_end,
+      trial_days_remaining: trialDaysRemaining,
+      has_customer: !!u.stripe_customer_id,
+    });
+  } catch (error) {
+    console.error('Billing status error:', error);
+    return res.status(500).json({ error: 'Failed to fetch billing status' });
+  } finally {
+    client.release();
+  }
+});
+
 // ── Grading Endpoints ─────────────────────────────────────────────────
 
 app.post('/api/extract', async (req, res) => {
@@ -967,6 +1149,58 @@ app.post('/api/grade', async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
+  // Check active subscription before grading
+  const client = await getClient();
+  try {
+    const userResult = await client.query(
+      `SELECT 
+         subscription_status,
+         stripe_subscription_status,
+         stripe_current_period_end,
+         stripe_trial_end
+       FROM users WHERE id = $1`,
+      [user.id]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const u = userResult.rows[0];
+    const status = u.subscription_status || u.stripe_subscription_status;
+
+    // Check access - only 'trialing' and 'active' grant access
+    const hasAccess = status === 'active' || status === 'trialing';
+
+    if (!hasAccess) {
+      // Determine the specific reason for the lockout
+      let reason = 'no_subscription';
+      let message = 'An active subscription is required to use this feature.';
+
+      if (status === 'canceled') {
+        reason = 'canceled';
+        message = 'Your subscription was canceled. Reactivate to continue grading.';
+      } else if (status === 'past_due' || status === 'unpaid') {
+        reason = 'payment_failed';
+        message = 'Payment failed. Please update your payment method to continue.';
+      } else if (status === 'no_subscription') {
+        reason = 'no_subscription';
+        message = 'Start your 7-day free trial to use HomeworkHelper.';
+      }
+
+      return res.status(402).json({
+        error: message,
+        code: reason,
+        subscription_status: status,
+      });
+    }
+  } catch (error) {
+    console.error('Billing guard error:', error);
+    return res.status(500).json({ error: 'Failed to verify subscription' });
+  } finally {
+    client.release();
+  }
+
   const { extractedQuestions, rubric, standardsText, gradeLevel, subject } =
     req.body;
 
@@ -1099,6 +1333,183 @@ app.post('/api/get-standard', (req, res) => {
     count: standards.length,
   });
 });
+
+// ── Webhook Handler (must be before body parser for raw body) ───────────
+// We need the raw body for Stripe signature verification.
+// Express 5: we'll use a separate route that reads raw body
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const Stripe = (await import('stripe')).default;
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia',
+  });
+
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const signature = req.headers['stripe-signature'];
+
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).json({ error: 'Webhook not configured' });
+  }
+
+  if (!signature) {
+    console.error('Missing stripe-signature header');
+    return res.status(400).json({ error: 'Missing signature' });
+  }
+
+  let event;
+  try {
+    // req.body is the raw buffer from express.raw()
+    event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+
+  const client = await getClient();
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        await handleCheckoutCompleted(client, stripe, session);
+        break;
+      }
+
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object;
+        await handleSubscriptionUpdate(client, subscription);
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        await handleSubscriptionDeleted(client, subscription);
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        console.log('Invoice payment failed:', invoice.id, 'for customer:', invoice.customer);
+        break;
+      }
+
+      default: {
+        console.log(`Unhandled webhook event type: ${event.type}`);
+      }
+    }
+
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('Webhook handler error:', error);
+    return res.status(500).json({ error: 'Webhook handler failed' });
+  } finally {
+    client.release();
+  }
+});
+
+async function handleCheckoutCompleted(client, stripe, session) {
+  const userId = session.metadata?.user_id;
+  const subscriptionId = session.subscription;
+  const customerId = session.customer;
+
+  if (!userId || !subscriptionId) {
+    console.error('Missing metadata in checkout.session.completed:', session.id);
+    return;
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+  await client.query(
+    `UPDATE users SET
+       stripe_customer_id = $1,
+       stripe_subscription_id = $2,
+       stripe_subscription_status = $3,
+       stripe_price_id = $4,
+       stripe_current_period_end = to_timestamp($5),
+       stripe_trial_end = $6,
+       updated_at = NOW()
+     WHERE id = $7`,
+    [
+      customerId,
+      subscriptionId,
+      subscription.status,
+      subscription.items.data[0]?.price?.id || null,
+      subscription.current_period_end,
+      subscription.trial_end ? subscription.trial_end : null,
+      userId,
+    ]
+  );
+
+  console.log(`Checkout completed for user ${userId}: sub ${subscriptionId} status ${subscription.status}`);
+}
+
+async function handleSubscriptionUpdate(client, subscription) {
+  const customerId = subscription.customer;
+  const subscriptionId = subscription.id;
+
+  const userResult = await client.query(
+    'SELECT id FROM users WHERE stripe_customer_id = $1',
+    [customerId]
+  );
+
+  if (userResult.rowCount === 0) {
+    console.error(`No user found for customer ${customerId}`);
+    return;
+  }
+
+  const userId = userResult.rows[0].id;
+
+  await client.query(
+    `UPDATE users SET
+       stripe_subscription_id = $1,
+       stripe_subscription_status = $2,
+       stripe_price_id = $3,
+       stripe_current_period_end = to_timestamp($4),
+       stripe_trial_end = $5,
+       updated_at = NOW()
+     WHERE id = $6`,
+    [
+      subscriptionId,
+      subscription.status,
+      subscription.items.data[0]?.price?.id || null,
+      subscription.current_period_end,
+      subscription.trial_end ? subscription.trial_end : null,
+      userId,
+    ]
+  );
+
+  console.log(`Subscription updated for user ${userId}: sub ${subscriptionId} status ${subscription.status}`);
+}
+
+async function handleSubscriptionDeleted(client, subscription) {
+  const customerId = subscription.customer;
+
+  const userResult = await client.query(
+    'SELECT id FROM users WHERE stripe_customer_id = $1',
+    [customerId]
+  );
+
+  if (userResult.rowCount === 0) {
+    console.error(`No user found for customer ${customerId} on subscription delete`);
+    return;
+  }
+
+  const userId = userResult.rows[0].id;
+
+  await client.query(
+    `UPDATE users SET
+       stripe_subscription_id = NULL,
+       stripe_subscription_status = 'canceled',
+       stripe_price_id = NULL,
+       stripe_current_period_end = NULL,
+       stripe_trial_end = NULL,
+       updated_at = NOW()
+     WHERE id = $1`,
+    [userId]
+  );
+
+  console.log(`Subscription deleted for user ${userId}: sub ${subscription.id}`);
+}
 
 // ── Health check ──────────────────────────────────────────────────────
 
