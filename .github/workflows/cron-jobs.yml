@@ -76,7 +76,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: cd scripts/ops && npm install pg stripe
+      - run: npm install pg stripe --prefix scripts/ops
       - run: node scripts/ops/mrr-snapshot.js
 
   # Stripe Webhook Verify
@@ -101,7 +101,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: cd scripts/ops && npm install pg resend
+      - run: npm install --prefix scripts/ops pg resend
       - run: node scripts/ops/send-outreach-batch.js
 
   # Trial Expiry Notify
@@ -117,7 +117,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: cd scripts/ops && npm install pg resend
+      - run: npm install --prefix scripts/ops pg resend
       - run: node scripts/ops/trial-expiry-notify.js
 
   # Weekly Content Publish
@@ -132,7 +132,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: cd scripts/ops && npm install pg
+      - run: npm install --prefix scripts/ops pg
       - run: node scripts/ops/publish-scheduled-content.js
 
   # DB Backup Verify
