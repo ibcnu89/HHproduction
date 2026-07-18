@@ -67,15 +67,14 @@ jobs:
   mrr-snapshot:
     if: github.event.schedule == '0 0 * * *' || github.event.inputs.job == 'mrr-snapshot'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
+      with:
+        path: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -95,15 +94,14 @@ jobs:
   send-outreach-batch:
     if: github.event.schedule == '0 10 * * 1-5' || github.event.inputs.job == 'send-outreach-batch'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
+      with:
+        path: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -114,15 +112,14 @@ jobs:
   trial-expiry-notify:
     if: github.event.schedule == '0 9 * * *' || github.event.inputs.job == 'trial-expiry-notify'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
+      with:
+        path: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -133,14 +130,13 @@ jobs:
   weekly-content-publish:
     if: github.event.schedule == '0 9 * * 1' || github.event.inputs.job == 'weekly-content-publish'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
+      with:
+        path: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -151,9 +147,6 @@ jobs:
   db-backup-verify:
     if: github.event.schedule == '0 3 * * 0' || github.event.inputs.job == 'db-backup-verify'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
@@ -167,9 +160,6 @@ jobs:
   ssl-cert-check:
     if: github.event.schedule == '0 12 1 * *' || github.event.inputs.job == 'ssl-cert-check'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
     env:
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
