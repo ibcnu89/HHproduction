@@ -73,8 +73,6 @@ jobs:
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -100,8 +98,6 @@ jobs:
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -118,8 +114,6 @@ jobs:
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -135,8 +129,6 @@ jobs:
       DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: .
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
