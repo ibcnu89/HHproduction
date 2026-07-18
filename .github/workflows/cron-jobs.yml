@@ -1,0 +1,164 @@
+name: HHproduction Cron Jobs
+
+on:
+  schedule:
+    # Daily health check - 6 AM UTC
+    - cron: '0 6 * * *'
+    # Stripe webhook verify - every 15 minutes
+    - cron: '*/15 * * * *'
+    # MRR snapshot - midnight UTC
+    - cron: '0 0 * * *'
+    # Send outreach batch - Mon-Fri 10 AM UTC
+    - cron: '0 10 * * 1-5'
+    # Trial expiry notify - 9 AM UTC daily
+    - cron: '0 9 * * *'
+    # Weekly content publish - Mon 9 AM UTC
+    - cron: '0 9 * * 1'
+    # DB backup verify - Sun 3 AM UTC
+    - cron: '0 3 * * 0'
+    # SSL cert check - 1st of month 12 PM UTC
+    - cron: '0 12 1 * *'
+
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Specific job to run'
+        type: choice
+        options:
+          - daily-health-check
+          - stripe-webhook-verify
+          - mrr-snapshot
+          - send-outreach-batch
+          - trial-expiry-notify
+          - weekly-content-publish
+          - db-backup-verify
+          - ssl-cert-check
+
+jobs:
+  daily-health-check:
+    if: github.event_name == 'schedule' || github.event.inputs.job == 'daily-health-check'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check health endpoint
+        run: |
+          curl -sf https://hhproduction-production.up.railway.app/health || exit 1
+
+  stripe-webhook-verify:
+    if: github.event_name == 'schedule' || github.event.inputs.job == 'stripe-webhook-verify'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify webhook endpoint
+        run: |
+          curl -sf https://hhproduction-production.up.railway.app/api/billing/webhook/health || exit 1
+
+  mrr-snapshot:
+    if: github.event_name == 'schedule' || github.event.inputs.job == 'mrr-snapshot'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install deps
+        run: npm ci
+        working-directory: /home/ibcnu/HHproduction-workdir
+      - name: Run MRR snapshot
+        run: node scripts/ops/mrr-snapshot.js
+
+  send-outreach-batch:
+    if: github.event_name == 'schedule' || github.event.inputs.job == 'send-outreach-batch'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+      APP_URL: https://hhproduction-production.up.railway.app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install deps
+        run: npm ci
+        working-directory: /home/ibcnu/HHproduction-workdir
+      - name: Send outreach batch
+        run: node scripts/ops/send-outreach-batch.js
+
+  trial-expiry-notify:
+    if: github.event_name == 'schedule' || github.event.inputs.job == 'trial-expiry-notify'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+      APP_URL: https://hhproduction-production.up.railway.app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install deps
+        run: npm ci
+        working-directory: /home/ibcnu/HHproduction-workdir
+      - name: Send trial expiry notifications
+        run: node scripts/ops/trial-expiry-notify.js
+
+  weekly-content-publish:
+    if: github.event_name == 'schedule' || github.event.inputs.job == 'weekly-content-publish'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install deps
+        run: npm ci
+        working-directory: /home/ibcnu/HHproduction-workdir
+      - name: Publish scheduled content
+        run: node scripts/ops/publish-scheduled-content.js
+
+  db-backup-verify:
+    if: github.event_name == 'schedule' || github.event.inputs.job == 'db-backup-verify'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install pg_dump
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client gzip
+      - name: Backup and verify
+        run: |
+          pg_dump $DATABASE_URL | gzip > /tmp/$(date +%F).sql.gz
+          test -s /tmp/$(date +%F).sql.gz || exit 1
+          echo "Backup verified: $(wc -c /tmp/$(date +%F).sql.gz | awk '{print $1}') bytes"
+
+  ssl-cert-check:
+    if: github.event_name == 'schedule' || github.event.inputs.job == 'ssl-cert-check'
+    runs-on: ubuntu-latest
+    env:
+      DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+    steps:
+      - name: Check SSL certificate expiry
+        run: |
+          bash -c 'openssl x509 -enddate -noout -in <(openssl s_client -connect hhproduction-production.up.railway.app:443 -servername hhproduction-production.up.railway.app </dev/null 2>/dev/null) | grep -q "$(date -d "+30 days" +%b\ %d)" && echo OK || exit 1'
