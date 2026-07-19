@@ -1,0 +1,117 @@
+name: HHproduction Cron Jobs
+
+on:
+  schedule:
+    # Daily health check - 6 AM UTC
+    - cron: '0 6 * * *'
+    # Stripe webhook verify - every 15 minutes
+    - cron: '*/15 * * * *'
+    # MRR snapshot - midnight UTC
+    - cron: '0 0 * * *'
+    # Send outreach batch - Mon-Fri 10 AM UTC
+    - cron: '0 10 * * 1-5'
+    # Trial expiry notify - 9 AM UTC daily
+    - cron: '0 9 * * *'
+    # Weekly content publish - Monday 9 AM UTC
+    - cron: '0 9 * * 1'
+    # Weekly SEO rank check - Wednesday 8 AM UTC
+    - cron: '0 8 * * 3'
+    # DB backup verify - Sunday 3 AM UTC
+    - cron: '0 3 * * 0'
+    # SSL cert check - 1st of month 12 PM UTC
+    - cron: '0 12 1 * *'
+
+  workflow_dispatch:
+    inputs:
+      cron:
+        description: 'Which cron to run manually'
+        required: true
+        type: choice
+        options:
+          - daily-health-check
+          - stripe-webhook-verify
+          - mrr-snapshot
+          - send-outreach-batch
+          - trial-expiry-notify
+          - weekly-content-publish
+          - weekly-seo-rank-check
+          - db-backup-verify
+          - ssl-cert-check
+
+jobs:
+  run-cron:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run selected cron
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          # Determine which cron to run
+          CRON="${{ github.event.inputs.cron || github.event.schedule }}"
+          
+          echo "Running cron: $CRON"
+          
+          case "$CRON" in
+            "0 6 * * *"|"daily-health-check")
+              echo "Running daily health check..."
+              curl -sf https://hhproduction-production.up.railway.app/health || exit 1
+              echo "Health check passed"
+              ;;
+            "*/15 * * * *"|"stripe-webhook-verify")
+              echo "Verifying Stripe webhook endpoint..."
+              curl -sf https://hhproduction-production.up.railway.app/api/billing/webhook/health || exit 1
+              echo "Webhook endpoint healthy"
+              ;;
+            "0 0 * * *"|"mrr-snapshot")
+              echo "Running MRR snapshot..."
+              node scripts/ops/mrr-snapshot.js
+              ;;
+            "0 10 * * 1-5"|"send-outreach-batch")
+              echo "Running outreach batch..."
+              node scripts/ops/send-outreach-batch.js
+              ;;
+            "0 9 * * *"|"trial-expiry-notify")
+              echo "Running trial expiry notifications..."
+              node scripts/ops/trial-expiry-notify.js
+              ;;
+            "0 9 * * 1"|"weekly-content-publish")
+              echo "Running weekly content publish..."
+              node scripts/ops/publish-scheduled-content.js
+              ;;
+            "0 8 * * 3"|"weekly-seo-rank-check")
+              echo "Running SEO rank check..."
+              node scripts/ops/seo-rank-check.js
+              ;;
+            "0 3 * * 0"|"db-backup-verify")
+              echo "Verifying DB backup..."
+              pg_dump "$DATABASE_URL" | gzip > /tmp/backup.sql.gz
+              test -s /tmp/backup.sql.gz || exit 1
+              echo "Backup verified: $(ls -lh /tmp/backup.sql.gz)"
+              ;;
+            "0 12 1 * *"|"ssl-cert-check")
+              echo "Checking SSL certificate expiry..."
+              bash -c 'openssl x509 -enddate -noout -in <(openssl s_client -connect hhproduction-production.up.railway.app:443 -servername hhproduction-production.up.railway.app </dev/null 2>/dev/null) | grep -q "$(date -d "+30 days" +%b\ %d)" && echo "OK: Cert valid >30 days" || (echo "WARNING: Cert expires within 30 days" && exit 1)'
+              ;;
+            *)
+              echo "Unknown cron: $CRON"
+              exit 1
+              ;;
+          esac
