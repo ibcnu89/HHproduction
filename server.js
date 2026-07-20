@@ -184,12 +184,18 @@ const app = express();
 // ── Capture raw body for Stripe webhook BEFORE any other middleware ────────
 const rawBodyMiddleware = (req, res, next) => {
   if (req.path === '/api/billing/webhook' && req.method === 'POST') {
-    let data = '';
-    req.setEncoding('utf8');
-    req.on('data', chunk => { data += chunk; });
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
     req.on('end', () => {
-      req.rawBody = data;
+      const rawBody = Buffer.concat(chunks).toString('utf8');
+      req.rawBody = rawBody;
+      console.log('[Webhook Debug] Raw body length:', rawBody.length);
+      console.log('[Webhook Debug] Raw body preview:', rawBody.substring(0, 200));
       next();
+    });
+    req.on('error', err => {
+      console.error('[Webhook Debug] Request error:', err);
+      next(err);
     });
   } else {
     next();
@@ -217,9 +223,13 @@ app.post('/api/billing/webhook', async (req, res) => {
     return res.status(400).json({ error: 'Missing signature' });
   }
 
+  const rawBody = req.rawBody;
+  console.log('[Webhook Debug] Using rawBody for verification, length:', rawBody?.length);
+  
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.rawBody, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    console.log('[Webhook Debug] Signature verified successfully');
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
