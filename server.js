@@ -209,6 +209,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-12-18.acacia',
 });
 
+// ── TEMP: Webhook catcher for debugging ────────────────────────────────
+app.post('/api/billing/webhook/debug', (req, res) => {
+  console.log('[DEBUG Webhook] Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('[DEBUG Webhook] Raw body:', req.rawBody);
+  console.log('[DEBUG Webhook] Body:', req.body);
+  res.json({ received: true, rawBodyLength: req.rawBody?.length });
+});
+
 app.post('/api/billing/webhook', async (req, res) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const signature = req.headers['stripe-signature'];
