@@ -35,6 +35,7 @@ import { requireAuth } from './lib/auth.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import fs from 'fs';
+import Stripe from 'stripe';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -179,6 +180,102 @@ function buildAnswerKeyRubricInstructions() {
 // ── Express App ──────────────────────────────────────────────────────
 
 const app = express();
+
+// ── Capture raw body for Stripe webhook BEFORE any other middleware ────────
+const rawBodyMiddleware = (req, res, next) => {
+  if (req.path === '/api/billing/webhook' && req.method === 'POST') {
+    let data = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => { data += chunk; });
+    req.on('end', () => {
+      req.rawBody = data;
+      next();
+    });
+  } else {
+    next();
+  }
+};
+app.use(rawBodyMiddleware);
+
+// ── Stripe Webhook (uses captured raw body) ────────────────────────────
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2024-12-18.acacia',
+});
+
+app.post('/api/billing/webhook', async (req, res) => {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const signature = req.headers['stripe-signature'];
+
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).json({ error: 'Webhook not configured' });
+  }
+
+  if (!signature) {
+    console.error('Missing stripe-signature header');
+    return res.status(400).json({ error: 'Missing signature' });
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.rawBody, signature, webhookSecret);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+
+  const client = await getClient();
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        await handleCheckoutCompleted(client, stripe, session);
+        break;
+      }
+
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object;
+        await handleSubscriptionUpdate(client, subscription);
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        await handleSubscriptionDeleted(client, subscription);
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        console.log('Invoice payment failed:', invoice.id, 'for customer:', invoice.customer);
+        break;
+      }
+
+      default: {
+        console.log(`Unhandled webhook event type: ${event.type}`);
+      }
+    }
+
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('Webhook handler error:', error);
+    return res.status(500).json({ error: 'Webhook handler failed' });
+  } finally {
+    client.release();
+  }
+});
+
+// ── Webhook Health Check (for cron monitoring) ───────────────────────
+
+app.get('/api/billing/webhook/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+
+// ── Body Parser ────────────────────────────────────────────────────────
+
 app.use(express.json({ limit: '10mb' })); // support base64 image uploads
 
 // ── Auth Routes (/api/auth/*) ────────────────────────────────────────
@@ -1334,78 +1431,6 @@ app.post('/api/get-standard', (req, res) => {
   });
 });
 
-// ── Webhook Handler (must be before body parser for raw body) ───────────
-// We need the raw body for Stripe signature verification.
-// Express 5: we'll use a separate route that reads raw body
-app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const Stripe = (await import('stripe')).default;
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2024-12-18.acacia',
-  });
-
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  const signature = req.headers['stripe-signature'];
-
-  if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET not configured');
-    return res.status(500).json({ error: 'Webhook not configured' });
-  }
-
-  if (!signature) {
-    console.error('Missing stripe-signature header');
-    return res.status(400).json({ error: 'Missing signature' });
-  }
-
-  let event;
-  try {
-    // req.body is the raw buffer from express.raw()
-    event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
-  }
-
-  const client = await getClient();
-  try {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        await handleCheckoutCompleted(client, stripe, session);
-        break;
-      }
-
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object;
-        await handleSubscriptionUpdate(client, subscription);
-        break;
-      }
-
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object;
-        await handleSubscriptionDeleted(client, subscription);
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        console.log('Invoice payment failed:', invoice.id, 'for customer:', invoice.customer);
-        break;
-      }
-
-      default: {
-        console.log(`Unhandled webhook event type: ${event.type}`);
-      }
-    }
-
-    return res.status(200).json({ received: true });
-  } catch (error) {
-    console.error('Webhook handler error:', error);
-    return res.status(500).json({ error: 'Webhook handler failed' });
-  } finally {
-    client.release();
-  }
-});
 
 async function handleCheckoutCompleted(client, stripe, session) {
   const userId = session.metadata?.user_id;
