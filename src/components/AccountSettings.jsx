@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useBilling } from '../contexts/BillingContext';
 
 /**
  * AccountSettings — slide-out panel for account management.
  *
  * Sections:
+ *  - Billing (subscription status + manage portal)
  *  - Change Password (current + new)
  *  - Unlink Google (if linked)
  *  - Danger Zone (delete account — placeholder, requires backend endpoint)
@@ -126,6 +128,19 @@ function UnlinkGoogleButton() {
 
 export default function AccountSettings({ onClose }) {
   const { user } = useAuth();
+  const { status, isTrialing, isActive, isCanceled, isPastDue, openPortal, subscribe } = useBilling();
+
+  const getStatusBadge = () => {
+    switch (status) {
+      case 'trialing': return { label: 'Trial Active', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' };
+      case 'active': return { label: 'Active', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' };
+      case 'canceled': return { label: 'Canceled', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' };
+      case 'past_due': return { label: 'Past Due', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' };
+      default: return { label: 'No Plan', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' };
+    }
+  };
+
+  const badge = getStatusBadge();
 
   return (
     <div
@@ -158,6 +173,41 @@ export default function AccountSettings({ onClose }) {
                 <p className="font-medium text-primary-900 dark:text-primary-100">{user?.name || 'Teacher'}</p>
                 <p className="text-sm text-primary-500 dark:text-primary-400">{user?.email}</p>
               </div>
+            </div>
+          </div>
+
+          {/* Billing Section */}
+          <div>
+            <h3 className="text-sm font-semibold text-primary-900 dark:text-primary-100 mb-3">Subscription</h3>
+            <div className="p-4 rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-primary-700 dark:text-primary-300">Status</span>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${badge.color}`}>{badge.label}</span>
+              </div>
+              {isTrialing && (
+                <p className="text-xs text-primary-500 dark:text-primary-400">
+                  $20/month after trial. Cancel anytime before it ends to avoid charges.
+                </p>
+              )}
+              {(isTrialing || isActive || isCanceled) ? (
+                <button onClick={openPortal}
+                  className="w-full py-2.5 px-4 rounded-lg font-medium text-sm bg-primary-500 text-white hover:bg-primary-600 transition-colors">
+                  {isCanceled ? 'Reactivate Subscription' : 'Manage Subscription'}
+                </button>
+              ) : (isPastDue) ? (
+                <button onClick={subscribe}
+                  className="w-full py-2.5 px-4 rounded-lg font-medium text-sm bg-red-500 text-white hover:bg-red-600 transition-colors">
+                  Update Payment Method
+                </button>
+              ) : (
+                <button onClick={subscribe}
+                  className="w-full py-2.5 px-4 rounded-lg font-medium text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 transition-colors">
+                  Start Free Trial
+                </button>
+              )}
+              <p className="text-xs text-primary-400 dark:text-primary-500">
+                Cancel anytime. Manage payment methods, billing history, and plan changes via Stripe.
+              </p>
             </div>
           </div>
 
