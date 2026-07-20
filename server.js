@@ -183,7 +183,7 @@ const app = express();
 
 // ── Capture raw body for Stripe webhook BEFORE any other middleware ────────
 const rawBodyMiddleware = (req, res, next) => {
-  if (req.path === '/api/billing/webhook' && req.method === 'POST') {
+  if ((req.path === '/api/billing/webhook' || req.path === '/api/billing/webhook/debug') && req.method === 'POST') {
     const chunks = [];
     req.on('data', chunk => chunks.push(chunk));
     req.on('end', () => {
