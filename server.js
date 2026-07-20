@@ -1462,13 +1462,21 @@ async function handleCheckoutCompleted(client, stripe, session) {
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
+  // Convert Stripe Unix timestamps (seconds) to PostgreSQL timestamptz
+  const currentPeriodEnd = subscription.current_period_end
+    ? new Date(subscription.current_period_end * 1000).toISOString()
+    : null;
+  const trialEnd = subscription.trial_end
+    ? new Date(subscription.trial_end * 1000).toISOString()
+    : null;
+
   await client.query(
     `UPDATE users SET
        stripe_customer_id = $1,
        stripe_subscription_id = $2,
        stripe_subscription_status = $3,
        stripe_price_id = $4,
-       stripe_current_period_end = to_timestamp($5),
+       stripe_current_period_end = $5,
        stripe_trial_end = $6,
        updated_at = NOW()
      WHERE id = $7`,
@@ -1477,8 +1485,8 @@ async function handleCheckoutCompleted(client, stripe, session) {
       subscriptionId,
       subscription.status,
       subscription.items.data[0]?.price?.id || null,
-      subscription.current_period_end,
-      subscription.trial_end ? subscription.trial_end : null,
+      currentPeriodEnd,
+      trialEnd,
       userId,
     ]
   );
@@ -1487,8 +1495,8 @@ async function handleCheckoutCompleted(client, stripe, session) {
 }
 
 async function handleSubscriptionUpdate(client, subscription) {
-  const customerId = subscription.customer;
   const subscriptionId = subscription.id;
+  const customerId = subscription.customer;
 
   const userResult = await client.query(
     'SELECT id FROM users WHERE stripe_customer_id = $1',
@@ -1502,12 +1510,20 @@ async function handleSubscriptionUpdate(client, subscription) {
 
   const userId = userResult.rows[0].id;
 
+  // Convert Stripe Unix timestamps (seconds) to PostgreSQL timestamptz
+  const currentPeriodEnd = subscription.current_period_end
+    ? new Date(subscription.current_period_end * 1000).toISOString()
+    : null;
+  const trialEnd = subscription.trial_end
+    ? new Date(subscription.trial_end * 1000).toISOString()
+    : null;
+
   await client.query(
     `UPDATE users SET
        stripe_subscription_id = $1,
        stripe_subscription_status = $2,
        stripe_price_id = $3,
-       stripe_current_period_end = to_timestamp($4),
+       stripe_current_period_end = $4,
        stripe_trial_end = $5,
        updated_at = NOW()
      WHERE id = $6`,
@@ -1515,8 +1531,8 @@ async function handleSubscriptionUpdate(client, subscription) {
       subscriptionId,
       subscription.status,
       subscription.items.data[0]?.price?.id || null,
-      subscription.current_period_end,
-      subscription.trial_end ? subscription.trial_end : null,
+      currentPeriodEnd,
+      trialEnd,
       userId,
     ]
   );
