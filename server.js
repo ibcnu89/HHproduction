@@ -179,27 +179,25 @@ function buildAnswerKeyRubricInstructions() {
 
 // ── Express App ──────────────────────────────────────────────────────
 
+import helmet from 'helmet';
+
 const app = express();
 
-// ── Capture raw body for Stripe webhook BEFORE any other middleware ────────
+// ── Security headers (helmet) ────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false, // disable CSP for now (adjust for production)
+  crossOriginEmbedderPolicy: false,
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
+}));
+
+// ── Capture raw body for Stripe webhook BEFORE express.json ──────────
 const rawBodyMiddleware = (req, res, next) => {
-  console.log('[RawBody Middleware] Path:', req.path, 'Method:', req.method);
   if ((req.path === '/api/billing/webhook' || req.path === '/api/billing/webhook/debug') && req.method === 'POST') {
-    console.log('[RawBody Middleware] Capturing raw body for:', req.path);
     const chunks = [];
-    req.on('data', chunk => {
-      console.log('[RawBody Middleware] Data chunk received, length:', chunk.length);
-      chunks.push(chunk);
-    });
+    req.on('data', chunk => chunks.push(chunk));
     req.on('end', () => {
-      const rawBody = Buffer.concat(chunks).toString('utf8');
-      req.rawBody = rawBody;
-      console.log('[RawBody Middleware] Raw body captured, length:', rawBody.length);
+      req.rawBody = Buffer.concat(chunks).toString('utf8');
       next();
-    });
-    req.on('error', err => {
-      console.error('[RawBody Middleware] Request error:', err);
-      next(err);
     });
   } else {
     next();
