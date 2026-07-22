@@ -10,6 +10,7 @@ import SettingsPanel from './components/SettingsPanel';
 import AuthPage from './components/AuthPage';
 import AccountSettings from './components/AccountSettings';
 import { BillingStatus } from './components/BillingStatus';
+import BatchGradePage from './pages/BatchGradePage';
 
 function GradingApp() {
   const { user, logout: authLogout } = useAuth();
@@ -53,6 +54,7 @@ function GradingApp() {
   const [error, setError] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('single');
 
   // Custom rubric state
   const [useCustomRubric, setUseCustomRubric] = useState(false);
@@ -216,42 +218,73 @@ function GradingApp() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           {hasAccess ? (
             <>
-              <TeacherInput
-                image={image}
-                imagePreview={imagePreview}
-                rubric={rubric}
-                gradeLevel={gradeLevel}
-                subject={subject}
-                isLoading={isLoading}
-                onImageChange={handleImageChange}
-                onRubricChange={handleRubricChange}
-                onSubjectChange={setSubject}
-                onGradeClick={handleGradeClick}
-                onRemoveImage={removeImage}
-                onOpenSettings={openSettings}
-                useCustomRubric={useCustomRubric}
-                setUseCustomRubric={setUseCustomRubric}
-                customRubricImage={customRubricImage}
-                customRubricPreview={customRubricPreview}
-                onCustomRubricImageChange={handleCustomRubricImageChange}
-                onRemoveCustomRubric={removeCustomRubric}
-                savedRubrics={savedRubrics}
-                onSaveRubric={handleSaveRubric}
-                onSelectSavedRubric={handleSelectSavedRubric}
-                onClearCustomRubric={handleClearCustomRubric}
-                isExtractingRubric={isExtractingRubric}
-                newRubricName={newRubricName}
-                setNewRubricName={setNewRubricName}
-                showSaveRubricPrompt={showSaveRubricPrompt}
-                setShowSaveRubricPrompt={setShowSaveRubricPrompt}
-                extractedCustomRubric={extractedCustomRubric}
-              />
-              <ResultsPanel
-                isLoading={isLoading}
-                gradingResult={gradingResult}
-                error={error}
-                onReset={handleGradeAnother}
-              />
+              <div className="lg:col-span-2 mb-6">
+                <div className="flex gap-4 border-b border-primary-200 dark:border-slate-700">
+                  <button
+                    onClick={() => setActiveTab('single')}
+                    className={`px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
+                      activeTab === 'single'
+                        ? 'bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-500'
+                        : 'text-primary-500 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300'
+                    }`}
+                  >
+                    Single Paper
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('batch')}
+                    className={`px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
+                      activeTab === 'batch'
+                        ? 'bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-500'
+                        : 'text-primary-500 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300'
+                    }`}
+                  >
+                    Batch Grading
+                  </button>
+                </div>
+              </div>
+              {activeTab === 'single' && (
+                <>
+                  <TeacherInput
+                    image={image}
+                    imagePreview={imagePreview}
+                    rubric={rubric}
+                    gradeLevel={gradeLevel}
+                    subject={subject}
+                    isLoading={isLoading}
+                    onImageChange={handleImageChange}
+                    onRubricChange={handleRubricChange}
+                    onSubjectChange={setSubject}
+                    onGradeClick={handleGradeClick}
+                    onRemoveImage={removeImage}
+                    onOpenSettings={openSettings}
+                    useCustomRubric={useCustomRubric}
+                    setUseCustomRubric={setUseCustomRubric}
+                    customRubricImage={customRubricImage}
+                    customRubricPreview={customRubricPreview}
+                    onCustomRubricImageChange={handleCustomRubricImageChange}
+                    onRemoveCustomRubric={removeCustomRubric}
+                    savedRubrics={savedRubrics}
+                    onSaveRubric={handleSaveRubric}
+                    onSelectSavedRubric={handleSelectSavedRubric}
+                    onClearCustomRubric={handleClearCustomRubric}
+                    isExtractingRubric={isExtractingRubric}
+                    newRubricName={newRubricName}
+                    setNewRubricName={setNewRubricName}
+                    showSaveRubricPrompt={showSaveRubricPrompt}
+                    setShowSaveRubricPrompt={setShowSaveRubricPrompt}
+                    extractedCustomRubric={extractedCustomRubric}
+                  />
+                  <ResultsPanel
+                    isLoading={isLoading}
+                    gradingResult={gradingResult}
+                    error={error}
+                    onReset={handleGradeAnother}
+                  />
+                </>
+              )}
+              {activeTab === 'batch' && (
+                <BatchGradePage />
+              )}
             </>
           ) : (
             <div className="lg:col-span-2">

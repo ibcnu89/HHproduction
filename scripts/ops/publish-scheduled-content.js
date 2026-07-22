@@ -39,27 +39,27 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejec
 // Platform posting functions (implement with actual APIs)
 async function postToTwitter(content) {
   console.log('[Twitter] Would post:', content.text.substring(0, 100));
-  // await twitterClient.post(content);
 }
 
 async function postToLinkedIn(content) {
   console.log('[LinkedIn] Would post:', content.text.substring(0, 100));
-  // await linkedinClient.post(content);
 }
 
 async function postToReddit(content) {
   console.log('[Reddit] Would post to r/', content.subreddit);
-  // await redditClient.post(content);
 }
 
 async function publishBlogPost(content) {
   console.log('[Blog] Would publish:', content.title);
-  // await cmsClient.publish(content);
 }
 
 async function sendNewsletter(content) {
   console.log('[Newsletter] Would send:', content.subject);
-  // await emailClient.send(content);
+}
+
+async function sendEmailViaResend(item) {
+  // TODO: Implement actual Resend send
+  console.log('[Email] Would send:', item.meta?.subject || item.title, 'to subscribers');
 }
 
 async function main() {
@@ -84,7 +84,12 @@ async function main() {
 
     for (const item of content.rows) {
       try {
-        const platforms = JSON.parse(item.platforms || '[]');
+        const platforms = Array.isArray(item.platforms) ? item.platforms : JSON.parse(item.platforms || '[]');
+        
+        // Handle email content type
+        if (item.content_type === 'email') {
+          await sendEmailViaResend(item);
+        }
         
         if (platforms.includes('twitter')) await postToTwitter(item);
         if (platforms.includes('linkedin')) await postToLinkedIn(item);

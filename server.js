@@ -36,6 +36,23 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import fs from 'fs';
 import Stripe from 'stripe';
+import multer from 'multer';
+
+// Configure multer for batch grading (memory storage for base64 conversion)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 50 // max 50 files
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files allowed'));
+    }
+  }
+});
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -1409,6 +1426,360 @@ app.post('/api/grade', async (req, res) => {
   } catch (error) {
     console.error('Grade submission error:', error);
     return res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Batch Grading ───────────────────────────────────────────────────────
+
+app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  // Check subscription access
+  const client = await getClient();
+  try {
+    const userResult = await client.query(
+      `SELECT subscription_status, stripe_subscription_status
+       FROM users WHERE id = $1`,
+      [user.id]
+    );
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const u = userResult.rows[0];
+    const status = u.subscription_status || u.stripe_subscription_status;
+    const hasAccess = status === 'active' || status === 'trialing';
+    if (!hasAccess) {
+      return res.status(402).json({
+        error: 'Active subscription required for batch grading',
+        code: 'payment_required',
+      });
+    }
+  } catch (error) {
+    console.error('Batch grade billing guard error:', error);
+    return res.status(500).json({ error: 'Failed to verify subscription' });
+  } finally {
+    client.release();
+  }
+
+  // Parse multipart form data (images + config)
+  // Expected: images[] (files), gradeLevel, subject, rubric?, standardsText?
+  const images = req.files?.images;
+  const { gradeLevel, subject, rubric, standardsText } = req.body;
+
+  if (!images || images.length === 0) {
+    return res.status(400).json({ error: 'No images provided' });
+  }
+  if (!gradeLevel || !subject) {
+    return res.status(400).json({ error: 'Missing required fields: gradeLevel, subject' });
+  }
+  if (images.length > 50) {
+    return res.status(400).json({ error: 'Maximum 50 images per batch' });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Gemini API key not configured' });
+  }
+
+  // Create batch session in DB
+  const batchClient = await getClient();
+  let batchId;
+  try {
+    const batchResult = await batchClient.query(
+      `INSERT INTO batch_grading_sessions (user_id, subject, grade_level, rubric, standards_text, total_images, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'processing')
+       RETURNING id`,
+      [user.id, subject, gradeLevel, rubric || null, standardsText || null, images.length]
+    );
+    batchId = batchResult.rows[0].id;
+  } catch (error) {
+    console.error('Batch session create error:', error);
+    batchClient.release();
+    return res.status(500).json({ error: 'Failed to create batch session' });
+  } finally {
+    batchClient.release();
+  }
+
+  // Process images sequentially (rate limit friendly)
+  const results = [];
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+  for (let i = 0; i < images.length; i++) {
+    const image = images[i];
+    const imageBase64 = image.data.toString('base64');
+    const mimeType = image.mimetype || 'image/jpeg';
+
+    // Step 1: Extract questions from handwriting
+    const extractPrompt = `You are reading a child's handwritten homework. Grade level: ${gradeLevel}. Subject: ${subject}.\n\nTranscribe every question and the child's handwritten answer exactly as written, preserving question numbers and structure. If an answer is blank, note it as [blank].\n\n${standardsText ? `Use these Illinois Learning Standards as reference:\n${standardsText}\n\n` : ''}Return ONLY a JSON array where each item has:\n{\n  "question_number": "string (e.g., \"1\", \"2a\", \"Q3\")",\n  "question_text": "string - the full question text as visible",\n  "student_answer": "string - exactly what the student wrote"\n}`;
+
+    let extractedQuestions;
+    try {
+      const extractResponse = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { text: extractPrompt },
+            { inline_data: { mime_type: mimeType, data: imageBase64 } }
+          ] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
+        })
+      });
+      if (!extractResponse.ok) throw new Error(`Gemini extract failed: ${extractResponse.status}`);
+      const extractData = await extractResponse.json();
+      const extractText = extractData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      extractedQuestions = JSON.parse(extractText.replace(/```json\n?|\n?```/g, '').trim());
+    } catch (err) {
+      console.error(`Image ${i+1} extraction error:`, err);
+      results.push({
+        image_index: i,
+        error: 'Failed to extract handwriting',
+        details: err.message
+      });
+      continue;
+    }
+
+    // Step 2: Grade with rubric
+    const gradePrompt = `You are an expert teacher grading ${gradeLevel} ${subject} homework.\n\n${rubric ? `Use this teacher-provided rubric:\n${rubric}\n\n` : ''}${standardsText ? `Align to these Illinois Learning Standards:\n${standardsText}\n\n` : ''}Student's work:\n${JSON.stringify(extractedQuestions, null, 2)}\n\nReturn ONLY JSON:\n{\n  "questions": [\n    {\n      "question_number": "string",\n      "is_correct": boolean,\n      "points_earned": number,\n      "points_possible": number,\n      "feedback": "string - constructive, specific feedback",\n      "standard_code": "string or null"\n    }\n  ],\n  "overall": {\n    "total_points_earned": number,\n    "total_points_possible": number,\n    "percentage": number,\n    "letter_grade": "string",\n    "summary_feedback": "string"\n  }\n}`;
+
+    let gradeResult;
+    try {
+      const gradeResponse = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: gradePrompt }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
+        })
+      });
+      if (!gradeResponse.ok) throw new Error(`Gemini grade failed: ${gradeResponse.status}`);
+      const gradeData = await gradeResponse.json();
+      const gradeText = gradeData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      gradeResult = JSON.parse(gradeText.replace(/```json\n?|\n?```/g, '').trim());
+    } catch (err) {
+      console.error(`Image ${i+1} grading error:`, err);
+      results.push({
+        image_index: i,
+        error: 'Failed to grade',
+        details: err.message
+      });
+      continue;
+    }
+
+    // Save result
+    const csvRow = {
+      student_name: `Student ${i+1}`,
+      score: gradeResult.overall.total_points_earned,
+      percentage: gradeResult.overall.percentage,
+      letter_grade: gradeResult.overall.letter_grade,
+      standards: gradeResult.questions.map(q => q.standard_code).filter(Boolean).join('; '),
+      feedback: gradeResult.overall.summary_feedback
+    };
+
+    results.push({
+      image_index: i,
+      extracted: extractedQuestions,
+      graded: gradeResult,
+      csv_row: csvRow
+    });
+
+    // Update batch progress
+    await getClient().then(c => c.query(
+      `UPDATE batch_grading_sessions SET completed_images = $1 WHERE id = $2`,
+      [i + 1, batchId]
+    ).then(c => c.release()).catch(() => {}));
+  }
+
+  // Mark batch complete
+  await getClient().then(c => c.query(
+    `UPDATE batch_grading_sessions SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+    [batchId]
+  ).then(c => c.release()).catch(() => {}));
+
+  return res.status(200).json({
+    batch_id: batchId,
+    total: images.length,
+    successful: results.filter(r => !r.error).length,
+    failed: results.filter(r => r.error).length,
+    results
+  });
+});
+
+// ── Batch Grading: Status ───────────────────────────────────────────────
+app.get('/api/batch-grade/status/:id', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      `SELECT id, status, total_images, completed_images, error, created_at, updated_at
+       FROM batch_grading_sessions WHERE id = $1 AND user_id = $2`,
+      [req.params.id, user.id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Batch session not found' });
+    }
+    const session = result.rows[0];
+    return res.status(200).json({
+      batch_id: session.id,
+      status: session.status,
+      total_images: session.total_images,
+      completed_images: session.completed_images,
+      progress_pct: session.total_images > 0 ? Math.round((session.completed_images / session.total_images) * 100) : 0,
+      error: session.error,
+      created_at: session.created_at,
+      updated_at: session.updated_at
+    });
+  } catch (error) {
+    console.error('Batch status error:', error);
+    return res.status(500).json({ error: 'Failed to fetch batch status' });
+  } finally {
+    client.release();
+  }
+});
+
+// ── Batch Grading: Results ──────────────────────────────────────────────
+app.get('/api/batch-grade/results/:id', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      `SELECT id, status, total_images, completed_images, results, grade_level, subject, rubric, created_at, completed_at
+       FROM batch_grading_sessions WHERE id = $1 AND user_id = $2`,
+      [req.params.id, user.id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Batch session not found' });
+    }
+    const session = result.rows[0];
+    return res.status(200).json({
+      batch_id: session.id,
+      status: session.status,
+      total_images: session.total_images,
+      completed_images: session.completed_images,
+      grade_level: session.grade_level,
+      subject: session.subject,
+      rubric: session.rubric,
+      results: session.results || [],
+      created_at: session.created_at,
+      completed_at: session.completed_at
+    });
+  } catch (error) {
+    console.error('Batch results error:', error);
+    return res.status(500).json({ error: 'Failed to fetch batch results' });
+  } finally {
+    client.release();
+  }
+});
+
+// ── Batch Grading: Export CSV ───────────────────────────────────────────
+app.get('/api/batch-grade/export/:id', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      `SELECT results, grade_level, subject, created_at
+       FROM batch_grading_sessions WHERE id = $1 AND user_id = $2`,
+      [req.params.id, user.id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Batch session not found' });
+    }
+    const session = result.rows[0];
+    const results = session.results || [];
+
+    // Build CSV
+    const headers = ['Student', 'Score', 'Percentage', 'Letter Grade', 'Standards', 'Feedback'];
+    const rows = results
+      .filter(r => r.csv_row)
+      .map(r => [
+        r.csv_row.student_name,
+        r.csv_row.score,
+        r.csv_row.percentage,
+        r.csv_row.letter_grade,
+        r.csv_row.standards,
+        r.csv_row.feedback
+      ]);
+
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="batch-grade-${req.params.id}-${Date.now()}.csv"`);
+    return res.status(200).send(csv);
+  } catch (error) {
+    console.error('Batch export error:', error);
+    return res.status(500).json({ error: 'Failed to export batch results' });
+  } finally {
+    client.release();
+  }
+});
+
+// ── Batch Grading: Override Single Result ───────────────────────────────
+app.post('/api/batch-grade/override', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const { batch_id, image_index, overrides } = req.body; // overrides: { points_earned, feedback, letter_grade, ... }
+  if (!batch_id || image_index === undefined || !overrides) {
+    return res.status(400).json({ error: 'Missing required fields: batch_id, image_index, overrides' });
+  }
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      `SELECT results FROM batch_grading_sessions WHERE id = $1 AND user_id = $2`,
+      [batch_id, user.id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Batch session not found' });
+    }
+
+    const results = [...(result.rows[0].results || [])];
+    if (!results[image_index]) {
+      return res.status(404).json({ error: 'Image index not found in batch' });
+    }
+
+    // Apply overrides to the graded result
+    const current = results[image_index];
+    if (current.graded) {
+      // Merge overrides into questions array
+      if (overrides.questions) {
+        current.graded.questions = current.graded.questions.map((q, qi) => ({
+          ...q,
+          ...(overrides.questions[qi] || {})
+        }));
+      }
+      // Merge overall overrides
+      if (overrides.overall) {
+        current.graded.overall = { ...current.graded.overall, ...overrides.overall };
+      }
+      // Update CSV row
+      current.csv_row = {
+        ...current.csv_row,
+        score: current.graded.overall.total_points_earned,
+        percentage: current.graded.overall.percentage,
+        letter_grade: current.graded.overall.letter_grade,
+        feedback: current.graded.overall.summary_feedback
+      };
+    }
+
+    await client.query(
+      `UPDATE batch_grading_sessions SET results = $1, updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify(results), batch_id]
+    );
+
+    return res.status(200).json({ success: true, result: results[image_index] });
+  } catch (error) {
+    console.error('Batch override error:', error);
+    return res.status(500).json({ error: 'Failed to apply override' });
+  } finally {
+    client.release();
   }
 });
 
