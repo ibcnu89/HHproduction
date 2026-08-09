@@ -50,6 +50,10 @@ function App() {
   const [customRubricImage, setCustomRubricImage] = useState(null)
   const [customRubricPreview, setCustomRubricPreview] = useState(null)
   const [savedRubrics, setSavedRubrics] = useState([])
+  const [isExtractingRubric, setIsExtractingRubric] = useState(false)
+  const [showSaveRubricPrompt, setShowSaveRubricPrompt] = useState(false)
+  const [newRubricName, setNewRubricName] = useState('')
+  const [extractedCustomRubric, setExtractedCustomRubric] = useState(null)
 
   // Load saved rubrics on mount
   useEffect(() => {
@@ -60,7 +64,7 @@ function App() {
     if (!image) return
     // Rubric is now OPTIONAL. Auto-rubric from IBSE standards when missing.
     // Only block when the teacher flipped the "use my own answer key" toggle but hasn't actually attached one yet.
-    if (useCustomRubric && !customRubricImage) return
+    if (useCustomRubric && !customRubricImage && !extractedCustomRubric) return
 
     setIsLoading(true)
     setError(null)
@@ -73,11 +77,13 @@ function App() {
       let finalRubric = null  // null = "let the backend auto-generate from standards"
 
       if (useCustomRubric) {
-        if (customRubricImage) {
+        if (extractedCustomRubric) {
+          finalRubric = JSON.stringify(extractedCustomRubric, null, 2)
+        } else if (customRubricImage) {
           const customRubricData = await extractCustomRubric(customRubricImage)
+          setExtractedCustomRubric(customRubricData)
           finalRubric = JSON.stringify(customRubricData, null, 2)
-          // Note: We are not saving the rubric automatically; the user can save it via the UI if needed.
-          // But we have removed the save rubric UI, so we just use it for this grading.
+          setShowSaveRubricPrompt(true)
         }
       } else if (rubric.trim()) {
         finalRubric = rubric
@@ -111,6 +117,8 @@ function App() {
       const reader = new FileReader()
       reader.onload = (event) => setCustomRubricPreview(event.target.result)
       reader.readAsDataURL(file)
+      setExtractedCustomRubric(null) // Reset extracted rubric when new image uploaded
+      setShowSaveRubricPrompt(false)
     }
   }
 
@@ -124,12 +132,52 @@ function App() {
   const removeCustomRubric = () => {
     setCustomRubricImage(null)
     setCustomRubricPreview(null)
+    setExtractedCustomRubric(null)
+    setShowSaveRubricPrompt(false)
   }
 
   const handleRubricChange = (value) => {
     setRubric(value)
     setGradingResult(null)
     setError(null)
+  }
+
+  const handleSaveRubric = async () => {
+    if (!newRubricName.trim() || !extractedCustomRubric) return
+    
+    try {
+      await saveRubric(newRubricName, extractedCustomRubric, gradeLevel, subject)
+      const updated = await getAllRubrics()
+      setSavedRubrics(updated)
+      setShowSaveRubricPrompt(false)
+      setNewRubricName('')
+    } catch (err) {
+      console.error('Failed to save rubric:', err)
+      setError('Failed to save rubric: ' + err.message)
+    }
+  }
+
+  const handleSelectSavedRubric = async (id) => {
+    try {
+      const db = await getRubric(id)
+      if (db) {
+        setExtractedCustomRubric(db.data)
+        setCustomRubricImage(null)
+        setCustomRubricPreview(null)
+        setShowSaveRubricPrompt(false)
+      }
+    } catch (err) {
+      console.error('Failed to load saved rubric:', err)
+      setError('Failed to load saved rubric: ' + err.message)
+    }
+  }
+
+  const handleClearCustomRubric = () => {
+    setCustomRubricImage(null)
+    setCustomRubricPreview(null)
+    setExtractedCustomRubric(null)
+    setShowSaveRubricPrompt(false)
+    setNewRubricName('')
   }
 
   const handleGradeAnother = () => {
@@ -140,30 +188,29 @@ function App() {
     setRubric('')
     setCustomRubricImage(null)
     setCustomRubricPreview(null)
+    setExtractedCustomRubric(null)
+    setShowSaveRubricPrompt(false)
+    setNewRubricName('')
   }
 
   const openSettings = () => setIsSettingsOpen(true)
   const closeSettings = () => setIsSettingsOpen(false)
 
   return (
-    <div className="min-h-screen bg-paper dark:bg-ink-deep transition-colors duration-200">
-      <Header
-        onOpenSettings={openSettings}
-        darkMode={darkMode}
-        onDarkModeChange={setDarkMode}
-      />
-      <main className="container-editorial pt-20 md:pt-24 pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
+    <div className="min-h-screen bg-primary-50 dark:bg-slate-900 transition-colors duration-200">
+      <Header onOpenSettings={openSettings} />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           <TeacherInput
             image={image}
             imagePreview={imagePreview}
-            _rubric={rubric}
+            rubric={rubric}
             gradeLevel={gradeLevel}
-            _subject={subject}
+            subject={subject}
             isLoading={isLoading}
             onImageChange={handleImageChange}
-            _onRubricChange={handleRubricChange}
-            _onSubjectChange={setSubject}
+            onRubricChange={handleRubricChange}
+            onSubjectChange={setSubject}
             onGradeClick={handleGradeClick}
             onRemoveImage={removeImage}
             onOpenSettings={openSettings}
@@ -174,17 +221,22 @@ function App() {
             onCustomRubricImageChange={handleCustomRubricImageChange}
             onRemoveCustomRubric={removeCustomRubric}
             savedRubrics={savedRubrics}
-            onSaveRubric={() => {}} // Placeholder, not used
-            onSelectSavedRubric={() => {}} // Placeholder, not used
+            onSaveRubric={handleSaveRubric}
+            onSelectSavedRubric={handleSelectSavedRubric}
+            onClearCustomRubric={handleClearCustomRubric}
+            isExtractingRubric={isExtractingRubric}
+            newRubricName={newRubricName}
+            setNewRubricName={setNewRubricName}
+            showSaveRubricPrompt={showSaveRubricPrompt}
+            setShowSaveRubricPrompt={setShowSaveRubricPrompt}
+            extractedCustomRubric={extractedCustomRubric}
           />
-          <div className="relative lg:sticky lg:top-24">
-            <ResultsPanel 
-              isLoading={isLoading} 
-              gradingResult={gradingResult}
-              error={error}
-              onReset={handleGradeAnother}
-            />
-          </div>
+          <ResultsPanel 
+            isLoading={isLoading} 
+            gradingResult={gradingResult}
+            error={error}
+            onReset={handleGradeAnother}
+          />
         </div>
       </main>
       {isSettingsOpen && (
