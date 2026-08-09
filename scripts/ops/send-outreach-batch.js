@@ -57,10 +57,10 @@ const OUTREACH_TEMPLATES = [
       <p>Tuesday night. Stack of {{subject}} papers. Netflix waiting.</p>
       <p>What if you could snap a photo of each paper and get standards-aligned grades + feedback in 30 seconds?</p>
       <p>That's what HomeworkHelper does. Illinois Learning Standards, custom rubrics, handwriting OCR.</p>
-      <p>7-day free trial. Cancel anytime. <a href="https://hhproduction-production.up.railway.app">Try it here</a>.</p>
+      <p>7-day free trial. Cancel anytime. <a href="https://letsmakeai.fun">Try it here</a>.</p>
       <p>— Skyler</p>
     `,
-    text: `Hi {{first_name}},\n\nTuesday night. Stack of {{subject}} papers. Netflix waiting.\n\nWhat if you could snap a photo of each paper and get standards-aligned grades + feedback in 30 seconds?\n\nThat's what HomeworkHelper does. Illinois Learning Standards, custom rubrics, handwriting OCR.\n\n7-day free trial. Cancel anytime. https://hhproduction-production.up.railway.app\n\n— Skyler`
+    text: `Hi {{first_name}},\n\nTuesday night. Stack of {{subject}} papers. Netflix waiting.\n\nWhat if you could snap a photo of each paper and get standards-aligned grades + feedback in 30 seconds?\n\nThat's what HomeworkHelper does. Illinois Learning Standards, custom rubrics, handwriting OCR.\n\n7-day free trial. Cancel anytime. https://letsmakeai.fun\n\n— Skyler`
   }
 ];
 
@@ -99,7 +99,7 @@ async function main() {
 
       try {
         await resend.emails.send({
-          from: 'Skyler @ HomeworkHelper <skyler@hhproduction.com>',
+          from: 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>',
           to: prospect.email,
           subject: template.subject,
           html: personalizedHtml,

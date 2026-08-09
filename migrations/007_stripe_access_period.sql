@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_access_period_end TIMESTAMPTZ;
