@@ -60,11 +60,11 @@ async function main() {
       const Stripe = (await import('stripe')).default;
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-12-18.acacia' });
 
-      let portalUrl = 'https://hhproduction-production.up.railway.app/settings';
+      let portalUrl = 'https://letsmakeai.fun/settings';
       try {
         const session = await stripe.billingPortal.sessions.create({
           customer: user.stripe_customer_id,
-          return_url: 'https://hhproduction-production.up.railway.app/settings',
+          return_url: 'https://letsmakeai.fun/settings',
         });
         portalUrl = session.url;
       } catch (err) {
@@ -87,7 +87,7 @@ async function main() {
 
       try {
         await resend.emails.send({
-          from: 'Skyler @ HomeworkHelper <skyler@hhproduction.com>',
+          from: 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>',
           to: user.email,
           subject: `Your trial ends ${trialEndDate} — keep grading on autopilot`,
           html,

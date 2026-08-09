@@ -1,0 +1,175 @@
+/**
+ * Quick Data Entry Tool
+ * Helps manually add standards from known sources
+ * 
+ * Usage: 
+ * 1. Visit the URLs in data-sources.js
+ * 2. Copy standard codes and descriptions
+ * 3. Run this tool to add them to the database
+ */
+
+import { commonCore } from '../../api/standards-embedded.js';
+
+const NON_COMMON_CORE_TEMPLATES = {
+  TX: {
+    Math: {
+      '5th': [
+        { code: '5.1.A', description: 'Apply mathematics to problems arising in everyday life, society, and the workplace.' },
+        { code: '5.1.B', description: 'Use a problem-solving model that incorporates analyzing given information, formulating a plan or strategy, determining a solution, justifying the solution, and evaluating the problem-solving process and the reasonableness of the solution.' },
+        { code: '5.1.C', description: 'Select tools, including real objects, manipulatives, paper and pencil, and technology as appropriate, and techniques, including mental math, estimation, and number sense as appropriate, to solve problems.' },
+        { code: '5.1.D', description: 'Communicate mathematical ideas, reasoning, and their implications using multiple representations, including symbols, diagrams, graphs, and language as appropriate.' },
+        { code: '5.1.E', description: 'Create and use representations to organize, record, and communicate mathematical ideas.' },
+        { code: '5.1.F', description: 'Analyze mathematical relationships to connect and communicate mathematical ideas.' },
+        { code: '5.1.G', description: 'Display, explain, and justify mathematical ideas and arguments using precise mathematical language in written or oral communication.' },
+        { code: '5.2.A', description: 'Represent the value of the digit in decimals through the thousandths using expanded notation and numerals.' },
+        { code: '5.2.B', description: 'Compare and order two decimals to thousandths and represent comparisons using the symbols >, <, or =.' },
+        { code: '5.2.C', description: 'Round decimals to tenths or hundredths.' },
+        { code: '5.3.A', description: 'Estimate to determine solutions to mathematical and real-world problems involving addition, subtraction, multiplication, or division.' },
+        { code: '5.3.B', description: 'Multiply with fluency a three-digit number by a two-digit number using the standard algorithm.' },
+        { code: '5.3.C', description: 'Solve with proficiency for quotients of up to a four-digit dividend by a two-digit divisor using strategies and the standard algorithm.' },
+        { code: '5.3.D', description: 'Represent multiplication of decimals with products to the hundredths using objects and pictorial models, including area models.' },
+        { code: '5.3.E', description: 'Solve for products of decimals to the hundredths, including situations involving money, using strategies based on place-value understandings, properties of operations, and the relationship to the multiplication of whole numbers.' },
+        { code: '5.3.F', description: 'Represent quotients of decimals to the hundredths, up to four-digit dividends and two-digit whole number divisors, using objects and pictorial models, including area models.' },
+        { code: '5.3.G', description: 'Solve for quotients of decimals to the hundredths, up to four-digit dividends and two-digit whole number divisors, using strategies and algorithms, including the standard algorithm.' },
+        { code: '5.3.H', description: 'Represent and solve addition and subtraction of fractions with unequal denominators referring to the same whole using objects and pictorial models and properties of operations.' },
+        { code: '5.3.I', description: 'Represent and solve multiplication of a whole number and a fraction that refers to the same whole using objects and pictorial models, including area models.' },
+        { code: '5.3.J', description: 'Represent division of a unit fraction by a whole number and the division of a whole number by a unit fraction such as 1/3 ÷ 7 and 7 ÷ 1/3 using objects and pictorial models, including area models.' },
+        { code: '5.3.K', description: 'Add and subtract positive rational numbers fluently.' },
+        { code: '5.3.L', description: 'Divide whole numbers by unit fractions and unit fractions by whole numbers.' }
+      ]
+    },
+    ELA: {
+      '5th': [
+        { code: '5.1.A', description: 'Read grade-level text with fluency and comprehension. Use context to confirm or self-correct word recognition and understanding, rereading as necessary.' },
+        { code: '5.2.A', description: 'Describe personal connections to a variety of sources, including self-selected texts.' },
+        { code: '5.2.B', description: 'Write responses that demonstrate understanding of texts, including comparing and contrasting ideas across texts.' },
+        { code: '5.3.A', description: 'Identify and explain the use of literary devices, including metaphor, simile, personification, and hyperbole.' },
+        { code: '5.4.A', description: 'Use clear and concise language to communicate ideas effectively.' },
+        { code: '5.5.A', description: 'Plan a first draft by selecting a genre for a particular purpose and audience.' },
+        { code: '5.5.B', description: 'Develop drafts into a focused, structured, and coherent piece of writing.' },
+        { code: '5.5.C', description: 'Revise drafts to improve sentence structure and word choice.' },
+        { code: '5.5.D', description: 'Edit drafts using standard English conventions.' }
+      ]
+    },
+    Science: {
+      '5th': [
+        { code: '5.1.A', description: 'Demonstrate safe practices and the use of safety equipment during classroom and outdoor investigations.' },
+        { code: '5.2.A', description: 'Describe, plan, and implement simple experimental investigations testing one variable.' },
+        { code: '5.3.A', description: 'In all fields of science, analyze, evaluate, and critique scientific explanations by using empirical evidence, logical reasoning, and experimental and observational testing.' },
+        { code: '5.4.A', description: 'Collect and record information using detailed observations and accurate measuring.' },
+        { code: '5.5.A', description: 'Classify matter based on physical properties, including mass, magnetism, physical state (solid, liquid, gas), relative density, solubility in water, and the ability to conduct or insulate thermal energy or electric energy.' },
+        { code: '5.6.A', description: 'Explore the uses of energy, including mechanical, light, thermal, electrical, and sound energy.' },
+        { code: '5.7.A', description: 'Explore the processes that led to the formation of sedimentary rocks and fossil fuels.' },
+        { code: '5.8.A', description: 'Differentiate between weather and climate.' },
+        { code: '5.9.A', description: 'Observe the way organisms live and survive in their ecosystem by interacting with the living and non-living elements.' },
+        { code: '5.10.A', description: 'Compare the structures and functions of different species that help them live and survive.' }
+      ]
+    },
+    SocialStudies: {
+      '5th': [
+        { code: '5.1.A', description: 'Explain when, where, and why groups of people colonized and settled in the United States.' },
+        { code: '5.2.A', description: 'Identify and analyze the causes and effects of events prior to and during the American Revolution.' },
+        { code: '5.3.A', description: 'Identify the issues that led to the creation of the U.S. Constitution.' },
+        { code: '5.4.A', description: 'Describe the growth of the United States during the early 1800s.' },
+        { code: '5.5.A', description: 'Explain the causes and effects of the Civil War.' },
+        { code: '5.6.A', description: 'Identify the reasons for and the impact of westward expansion.' },
+        { code: '5.7.A', description: 'Analyze the effects of Reconstruction on the political, economic, and social life of the nation.' },
+        { code: '5.8.A', description: 'Explain the impact of industry and immigration on the United States.' },
+        { code: '5.9.A', description: 'Analyze the causes and effects of the Great Depression and Dust Bowl.' },
+        { code: '5.10.A', description: 'Explain the causes and effects of World War II.' }
+      ]
+    }
+  },
+  
+  VA: {
+    Math: {
+      '5th': [
+        { code: '5.1', description: 'The student, given a decimal through thousandths, will round to the nearest whole number, tenth, or hundredth.' },
+        { code: '5.2', description: 'The student will represent and identify equivalencies among fractions and decimals, with and without models.' },
+        { code: '5.3', description: 'The student will compare and order fractions, decimals, and mixed numbers.' },
+        { code: '5.4', description: 'The student will create and solve single-step and multistep practical problems involving addition, subtraction, multiplication, and division of whole numbers.' },
+        { code: '5.5', description: 'The student will estimate and determine the product and quotient of two numbers involving decimals.' },
+        { code: '5.6', description: 'The student will solve single-step and multistep practical problems involving addition and subtraction of fractions and mixed numbers.' },
+        { code: '5.7', description: 'The student will simplify whole number numerical expressions using the order of operations.' },
+        { code: '5.8', description: 'The student will describe and determine the perimeter of polygons and the area of rectangles and right triangles.' },
+        { code: '5.9', description: 'The student will identify equivalent measurements within the metric system.' },
+        { code: '5.10', description: 'The student will identify and describe the diameter, radius, chord, and circumference of a circle.' },
+        { code: '5.11', description: 'The student will solve practical problems related to elapsed time in hours and minutes within a 24-hour period.' },
+        { code: '5.12', description: 'The student will classify and measure right, acute, obtuse, and straight angles.' },
+        { code: '5.13', description: 'The student will classify triangles as right, acute, or obtuse and equilateral, scalene, or isosceles.' },
+        { code: '5.14', description: 'The student will recognize and describe the properties of plane figures including parallel, perpendicular, and intersecting lines.' },
+        { code: '5.15', description: 'The student will determine the probability of an outcome by constructing a sample space.' },
+        { code: '5.16', description: 'The student will represent data in line plots and stem-and-leaf plots.' },
+        { code: '5.17', description: 'The student will interpret data represented in line plots and stem-and-leaf plots.' },
+        { code: '5.18', description: 'The student will identify, describe, create, express, and extend number patterns found in objects, pictures, numbers, and tables.' },
+        { code: '5.19', description: 'The student will investigate and describe the concept of variable.' },
+        { code: '5.20', description: 'The student will write an equation to represent a given mathematical relationship, using a variable.' }
+      ]
+    },
+    ELA: {
+      '5th': [
+        { code: '5.1', description: 'The student will use effective oral communication skills in a variety of settings.' },
+        { code: '5.2', description: 'The student will use effective nonverbal communication skills.' },
+        { code: '5.3', description: 'The student will listen to and discuss a variety of literary and informational texts.' },
+        { code: '5.4', description: 'The student will expand vocabulary when reading.' },
+        { code: '5.5', description: 'The student will read and demonstrate comprehension of fictional texts, narrative nonfiction, and poetry.' },
+        { code: '5.6', description: 'The student will read and demonstrate comprehension of nonfiction texts.' },
+        { code: '5.7', description: 'The student will write in a variety of forms to include narrative, descriptive, expository, and persuasive.' },
+        { code: '5.8', description: 'The student will self- and peer-edit writing for capitalization, punctuation, spelling, sentence structure, paragraphing, and Standard English.' },
+        { code: '5.9', description: 'The student will find, evaluate, and select appropriate resources for a research product.' }
+      ]
+    }
+  },
+  
+  FL: {
+    Math: {
+      '5th': [
+        { code: 'MA.5.NSO.1.1', description: 'Express a five-digit number in expanded form and standard form.' },
+        { code: 'MA.5.NSO.1.2', description: 'Compare multi-digit numbers using >, =, and < symbols.' },
+        { code: 'MA.5.NSO.1.3', description: 'Round multi-digit whole numbers to any place.' },
+        { code: 'MA.5.NSO.1.4', description: 'Multiply multi-digit whole numbers using a standard algorithm.' },
+        { code: 'MA.5.NSO.1.5', description: 'Divide multi-digit whole numbers using a standard algorithm.' },
+        { code: 'MA.5.NSO.2.1', description: 'Add and subtract multi-digit numbers with decimals to the thousandths.' },
+        { code: 'MA.5.NSO.2.2', description: 'Multiply and divide multi-digit numbers with decimals to the thousandths.' },
+        { code: 'MA.5.FR.1.1', description: 'Given a mathematical or real-world problem, represent the division of two whole numbers as a fraction.' },
+        { code: 'MA.5.FR.2.1', description: 'Add and subtract fractions with unlike denominators, including mixed numbers.' },
+        { code: 'MA.5.FR.2.2', description: 'Multiply a fraction by a fraction, including mixed numbers.' },
+        { code: 'MA.5.FR.2.3', description: 'Divide a unit fraction by a whole number and a whole number by a unit fraction.' },
+        { code: 'MA.5.AR.1.1', description: 'Solve multi-step real-world problems involving any combination of the four operations with whole numbers.' },
+        { code: 'MA.5.AR.1.2', description: 'Solve real-world problems involving the addition, subtraction, or multiplication of fractions.' },
+        { code: 'MA.5.AR.2.1', description: 'Translate written real-world and mathematical descriptions into numerical expressions and numerical expressions into written mathematical descriptions.' },
+        { code: 'MA.5.AR.2.2', description: 'Evaluate multi-step numerical expressions using order of operations.' },
+        { code: 'MA.5.AR.3.1', description: 'Given a numerical pattern, identify the rule and extend the pattern.' },
+        { code: 'MA.5.GR.1.1', description: 'Classify triangles or quadrilaterals into different categories based on shared defining attributes.' },
+        { code: 'MA.5.GR.1.2', description: 'Identify and classify three-dimensional figures into categories based on their defining attributes.' },
+        { code: 'MA.5.GR.2.1', description: 'Find the perimeter and area of rectangles with fractional or decimal side lengths.' },
+        { code: 'MA.5.GR.2.2', description: 'Find the volume of a right rectangular prism using a formula.' },
+        { code: 'MA.5.DP.1.1', description: 'Collect and represent numerical data, including fractional and decimal values, using tables, line graphs, or line plots.' },
+        { code: 'MA.5.DP.1.2', description: 'Interpret numerical data, including fractional and decimal values, represented with tables, line graphs, or line plots.' }
+      ]
+    },
+    ELA: {
+      '5th': [
+        { code: 'ELA.5.R.1.1', description: 'Analyze how setting, events, conflict, and characterization contribute to the plot in a literary text.' },
+        { code: 'ELA.5.R.1.2', description: 'Analyze the development of a theme in a literary text.' },
+        { code: 'ELA.5.R.2.1', description: 'Explain how text features contribute to the meaning of an informational text.' },
+        { code: 'ELA.5.R.2.2', description: 'Explain how the organizational structure of an informational text contributes to the meaning.' },
+        { code: 'ELA.5.R.3.1', description: 'Analyze figurative language, including similes, metaphors, personification, and idioms.' },
+        { code: 'ELA.5.C.1.1', description: 'Write narratives that develop real or imagined experiences using effective technique, descriptive details, and clear event sequences.' },
+        { code: 'ELA.5.C.1.2', description: 'Write opinion pieces that support a point of view with reasons and evidence.' },
+        { code: 'ELA.5.C.1.3', description: 'Write expository texts to explain a topic with facts, definitions, and examples.' },
+        { code: 'ELA.5.C.2.1', description: 'Present information orally, in a logical sequence, using nonverbal cues, appropriate volume, and clear pronunciation.' },
+        { code: 'ELA.5.C.3.1', description: 'Follow the rules of standard English grammar, punctuation, capitalization, and spelling appropriate to grade level.' },
+        { code: 'ELA.5.V.1.1', description: 'Use grade-level academic vocabulary appropriately in speaking and writing.' },
+        { code: 'ELA.5.V.1.2', description: 'Determine the meaning of words using context clues, affixes, and root words.' }
+      ]
+    }
+  }
+};
+
+/**
+ * This file contains starter templates for non-Common Core states.
+ * We'll expand these with real data from the state DOE websites.
+ */
+
+export { NON_COMMON_CORE_TEMPLATES };

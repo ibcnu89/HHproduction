@@ -1,28 +1,13 @@
 /**
- * Vercel Serverless Function: Get Illinois Learning Standards
+ * Vercel Serverless Function: Get State Learning Standards
  * POST /api/get-standard
- * Body: { gradeLevel, subject }
+ * Body: { gradeLevel, subject, stateCode }
  * Returns: { standardsText: string | null, error: string | null }
  */
 
 const fs = require('fs');
 const path = require('path');
-
-const DATA_FILE = path.join(__dirname, '_standards_data.json');
-
-// Load standards data once at startup
-let standardsCache = null;
-function loadStandards() {
-  if (standardsCache) return standardsCache;
-  try {
-    const data = fs.readFileSync(DATA_FILE, 'utf8');
-    standardsCache = JSON.parse(data);
-    return standardsCache;
-  } catch (e) {
-    console.error('Failed to load standards data:', e.message);
-    return null;
-  }
-}
+const { commonCore, states } = require('./standards-data.js');
 
 // Convert grade level input to standard format
 function normalizeGradeLevel(gradeLevel) {
@@ -46,10 +31,32 @@ function normalizeGradeLevel(gradeLevel) {
   return map[key] || gradeLevel;
 }
 
-function formatStandardsText(subject, gradeLevel, standards) {
+// Get state code from user preferences or use default
+function getStateCode(reqStateCode) {
+  const code = (reqStateCode || 'IL').toUpperCase();
+  if (states[code]) return code;
+  return 'IL';
+}
+
+// Get standards for a specific state
+function getStateStandards(stateCode, subject, gradeLevel) {
+  // Check if state uses commonCore
+  const stateInfo = states[stateCode];
+  if (!stateInfo || stateInfo.source !== 'commonCore') {
+    return null;
+  }
+  
+  // Get from commonCore
+  const subjectData = commonCore[subject];
+  if (!subjectData) return null;
+  
+  return subjectData[gradeLevel] || null;
+}
+
+function formatStandardsText(stateName, subject, gradeLevel, standards) {
   if (!standards || standards.length === 0) return null;
   
-  let text = `Illinois Learning Standards for ${subject} ${gradeLevel} Grade:\n\n`;
+  let text = `${stateName} Learning Standards for ${subject} ${gradeLevel} Grade:\n\n`;
   standards.forEach((s, i) => {
     text += `${i + 1}. ${s.code}: ${s.description}\n`;
   });
@@ -61,45 +68,36 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { gradeLevel, subject } = req.body;
+  const { gradeLevel, subject, stateCode } = req.body;
 
   if (!gradeLevel || !subject) {
     return res.status(400).json({ error: 'Missing required fields: gradeLevel, subject' });
   }
 
-  const data = loadStandards();
-  if (!data) {
-    return res.status(500).json({ 
-      standardsText: null, 
-      error: 'Standards data not available' 
-    });
-  }
+  const stateCodeUpper = getStateCode(stateCode);
+  const stateInfo = states[stateCodeUpper] || states['IL'];
+  const stateName = stateInfo.name || stateCodeUpper;
 
   const normGrade = normalizeGradeLevel(gradeLevel);
-  const subjectData = data[subject];
-
-  if (!subjectData) {
-    return res.status(200).json({ 
-      standardsText: null, 
-      error: `Subject "${subject}" not found in standards data` 
-    });
-  }
-
-  const standards = subjectData[normGrade];
+  
+  const standards = getStateStandards(stateCodeUpper, subject, normGrade);
+  
   if (!standards || standards.length === 0) {
     return res.status(200).json({ 
       standardsText: null, 
-      error: `No standards found for ${subject} ${normGrade}` 
+      error: `No standards found for ${subject} ${normGrade} (using ${stateName} standards)` 
     });
   }
 
-  const standardsText = formatStandardsText(subject, normGrade, standards);
+  const standardsText = formatStandardsText(stateName, subject, normGrade, standards);
   
   return res.status(200).json({
     standardsText,
     error: null,
     gradeLevel: normGrade,
     subject,
+    stateCode: stateCodeUpper,
+    stateName,
     count: standards.length
   });
 }

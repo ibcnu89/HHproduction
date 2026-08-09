@@ -1,0 +1,226 @@
+[
+  {
+    "stateCode": "TX",
+    "stateName": "Texas",
+    "framework": "TEKS",
+    "subject": "Math",
+    "query": "Texas TEKS standards Mathematics grade 5 site:tea.texas.gov"
+  },
+  {
+    "stateCode": "TX",
+    "stateName": "Texas",
+    "framework": "TEKS",
+    "subject": "ELA",
+    "query": "Texas TEKS standards English Language Arts grade 5 site:tea.texas.gov"
+  },
+  {
+    "stateCode": "TX",
+    "stateName": "Texas",
+    "framework": "TEKS",
+    "subject": "Science",
+    "query": "Texas Essential Knowledge and Skills Science grade 5 site:tea.texas.gov"
+  },
+  {
+    "stateCode": "TX",
+    "stateName": "Texas",
+    "framework": "TEKS",
+    "subject": "SocialStudies",
+    "query": "Texas Essential Knowledge and Skills Social Studies grade 5 site:tea.texas.gov"
+  },
+  {
+    "stateCode": "VA",
+    "stateName": "Virginia",
+    "framework": "SOL",
+    "subject": "Math",
+    "query": "Virginia SOL standards Mathematics grade 5 site:doe.virginia.gov"
+  },
+  {
+    "stateCode": "VA",
+    "stateName": "Virginia",
+    "framework": "SOL",
+    "subject": "ELA",
+    "query": "Virginia SOL standards English grade 5 site:doe.virginia.gov"
+  },
+  {
+    "stateCode": "VA",
+    "stateName": "Virginia",
+    "framework": "SOL",
+    "subject": "Science",
+    "query": "Virginia Standards of Learning Science grade 5 site:doe.virginia.gov"
+  },
+  {
+    "stateCode": "VA",
+    "stateName": "Virginia",
+    "framework": "SOL",
+    "subject": "SocialStudies",
+    "query": "Virginia Standards of Learning History grade 5 site:doe.virginia.gov"
+  },
+  {
+    "stateCode": "FL",
+    "stateName": "Florida",
+    "framework": "B.E.S.T.",
+    "subject": "Math",
+    "query": "Florida B.E.S.T. standards Mathematics grade 5 site:fldoe.org"
+  },
+  {
+    "stateCode": "FL",
+    "stateName": "Florida",
+    "framework": "B.E.S.T.",
+    "subject": "ELA",
+    "query": "Florida B.E.S.T. standards ELA grade 5 site:fldoe.org"
+  },
+  {
+    "stateCode": "FL",
+    "stateName": "Florida",
+    "framework": "B.E.S.T.",
+    "subject": "Science",
+    "query": "Florida B.E.S.T. standards Science grade 5 site:fldoe.org"
+  },
+  {
+    "stateCode": "FL",
+    "stateName": "Florida",
+    "framework": "B.E.S.T.",
+    "subject": "SocialStudies",
+    "query": "Florida B.E.S.T. standards Social Studies grade 5 site:fldoe.org"
+  },
+  {
+    "stateCode": "MN",
+    "stateName": "Minnesota",
+    "framework": "Minnesota K-12 Academic Standards",
+    "subject": "Math",
+    "query": "Minnesota K-12 Academic Standards Mathematics grade 5 site:education.mn.gov"
+  },
+  {
+    "stateCode": "MN",
+    "stateName": "Minnesota",
+    "framework": "Minnesota K-12 Academic Standards",
+    "subject": "ELA",
+    "query": "Minnesota K-12 Academic Standards ELA grade 5 site:education.mn.gov"
+  },
+  {
+    "stateCode": "MN",
+    "stateName": "Minnesota",
+    "framework": "Minnesota K-12 Academic Standards",
+    "subject": "Science",
+    "query": "Minnesota K-12 Academic Standards Science grade 5 site:education.mn.gov"
+  },
+  {
+    "stateCode": "MN",
+    "stateName": "Minnesota",
+    "framework": "Minnesota K-12 Academic Standards",
+    "subject": "SocialStudies",
+    "query": "Minnesota K-12 Academic Standards Social Studies grade 5 site:education.mn.gov"
+  },
+  {
+    "stateCode": "NE",
+    "stateName": "Nebraska",
+    "framework": "Nebraska College and Career Ready Standards",
+    "subject": "Math",
+    "query": "Nebraska College and Career Ready Standards Mathematics grade 5 site:education.ne.gov"
+  },
+  {
+    "stateCode": "NE",
+    "stateName": "Nebraska",
+    "framework": "Nebraska College and Career Ready Standards",
+    "subject": "ELA",
+    "query": "Nebraska College and Career Ready Standards ELA grade 5 site:education.ne.gov"
+  },
+  {
+    "stateCode": "NE",
+    "stateName": "Nebraska",
+    "framework": "Nebraska College and Career Ready Standards",
+    "subject": "Science",
+    "query": "Nebraska College and Career Ready Standards Science grade 5 site:education.ne.gov"
+  },
+  {
+    "stateCode": "NE",
+    "stateName": "Nebraska",
+    "framework": "Nebraska College and Career Ready Standards",
+    "subject": "SocialStudies",
+    "query": "Nebraska College and Career Ready Standards Social Studies grade 5 site:education.ne.gov"
+  },
+  {
+    "stateCode": "OK",
+    "stateName": "Oklahoma",
+    "framework": "Oklahoma Academic Standards",
+    "subject": "Math",
+    "query": "Oklahoma Academic Standards Mathematics grade 5 site:sde.ok.gov"
+  },
+  {
+    "stateCode": "OK",
+    "stateName": "Oklahoma",
+    "framework": "Oklahoma Academic Standards",
+    "subject": "ELA",
+    "query": "Oklahoma Academic Standards ELA grade 5 site:sde.ok.gov"
+  },
+  {
+    "stateCode": "OK",
+    "stateName": "Oklahoma",
+    "framework": "Oklahoma Academic Standards",
+    "subject": "Science",
+    "query": "Oklahoma Academic Standards Science grade 5 site:sde.ok.gov"
+  },
+  {
+    "stateCode": "OK",
+    "stateName": "Oklahoma",
+    "framework": "Oklahoma Academic Standards",
+    "subject": "SocialStudies",
+    "query": "Oklahoma Academic Standards Social Studies grade 5 site:sde.ok.gov"
+  },
+  {
+    "stateCode": "IN",
+    "stateName": "Indiana",
+    "framework": "Indiana Academic Standards",
+    "subject": "Math",
+    "query": "Indiana Academic Standards Mathematics grade 5 site:in.gov/doe"
+  },
+  {
+    "stateCode": "IN",
+    "stateName": "Indiana",
+    "framework": "Indiana Academic Standards",
+    "subject": "ELA",
+    "query": "Indiana Academic Standards ELA grade 5 site:in.gov/doe"
+  },
+  {
+    "stateCode": "IN",
+    "stateName": "Indiana",
+    "framework": "Indiana Academic Standards",
+    "subject": "Science",
+    "query": "Indiana Academic Standards Science grade 5 site:in.gov/doe"
+  },
+  {
+    "stateCode": "IN",
+    "stateName": "Indiana",
+    "framework": "Indiana Academic Standards",
+    "subject": "SocialStudies",
+    "query": "Indiana Academic Standards Social Studies grade 5 site:in.gov/doe"
+  },
+  {
+    "stateCode": "SC",
+    "stateName": "South Carolina",
+    "framework": "South Carolina College- and Career-Ready Standards",
+    "subject": "Math",
+    "query": "South Carolina College- and Career-Ready Standards Mathematics grade 5 site:ed.sc.gov"
+  },
+  {
+    "stateCode": "SC",
+    "stateName": "South Carolina",
+    "framework": "South Carolina College- and Career-Ready Standards",
+    "subject": "ELA",
+    "query": "South Carolina College- and Career-Ready Standards ELA grade 5 site:ed.sc.gov"
+  },
+  {
+    "stateCode": "SC",
+    "stateName": "South Carolina",
+    "framework": "South Carolina College- and Career-Ready Standards",
+    "subject": "Science",
+    "query": "South Carolina College- and Career-Ready Standards Science grade 5 site:ed.sc.gov"
+  },
+  {
+    "stateCode": "SC",
+    "stateName": "South Carolina",
+    "framework": "South Carolina College- and Career-Ready Standards",
+    "subject": "SocialStudies",
+    "query": "South Carolina College- and Career-Ready Standards Social Studies grade 5 site:ed.sc.gov"
+  }
+]

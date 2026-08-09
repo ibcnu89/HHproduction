@@ -1,0 +1,16 @@
+{
+  "states": {
+    "IL": { "name": "Illinois", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "CA": { "name": "California", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "TX": { "name": "Texas", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "FL": { "name": "Florida", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "NY": { "name": "New York", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "PA": { "name": "Pennsylvania", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "OH": { "name": "Ohio", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "GA": { "name": "Georgia", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "NC": { "name": "North Carolina", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] },
+    "MI": { "name": "Michigan", "source": "commonCore", "subjects": ["ELA", "Math"], "grades": ["K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"] }
+  },
+  "defaultState": "IL",
+  "version": "2.0.0"
+}
