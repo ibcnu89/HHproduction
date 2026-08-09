@@ -37,6 +37,9 @@ import crypto from 'crypto';
 import fs from 'fs';
 import Stripe from 'stripe';
 import multer from 'multer';
+import { getClassroomAuthUrl, exchangeClassroomCode, storeClassroomTokens, revokeClassroomTokens, getClassroomConnectionStatus } from './lib/google-classroom.js';
+import { syncUserClassroom } from './lib/classroom-sync.js';
+import { pushGradeToClassroom } from './lib/classroom-grades.js';
 
 // Configure multer for batch grading (memory storage for base64 conversion)
 const upload = multer({
@@ -118,21 +121,150 @@ function userResponse(user) {
 }
 
 // ── Standards data loader ────────────────────────────────────────────
+// Embedded Common Core standards (all grades K-12) for Common Core states
+import { commonCore } from './scripts/expanded-common-core.js';
 
-const STANDARDS_DATA_PATH = path.join(__dirname, 'api', '_standards_data.json');
-let standardsCache = null;
+const states = {
+  IL: { name: "Illinois", source: "commonCore" },
+  CA: { name: "California", source: "commonCore" },
+  TX: { name: "Texas", source: "TEKS" },
+  FL: { name: "Florida", source: "B.E.S.T." },
+  VA: { name: "Virginia", source: "SOL" },
+  NY: { name: "New York", source: "commonCore" },
+  PA: { name: "Pennsylvania", source: "commonCore" },
+  OH: { name: "Ohio", source: "commonCore" },
+  GA: { name: "Georgia", source: "commonCore" },
+  NC: { name: "North Carolina", source: "commonCore" },
+  MI: { name: "Michigan", source: "commonCore" }
+};
 
-function loadStandards() {
-  if (standardsCache) return standardsCache;
-  try {
-    const data = fs.readFileSync(STANDARDS_DATA_PATH, 'utf8');
-    standardsCache = JSON.parse(data);
-    return standardsCache;
-  } catch (e) {
-    console.error('Failed to load standards data:', e.message);
-    return null;
+// State-specific standards (non-Common Core)
+const stateStandards = {
+  TX: {
+    Math: {
+      "5th": [
+        { code: "5.1.A", description: "[Texas] Apply mathematics to problems arising in everyday life, society, and the workplace." },
+        { code: "5.1.B", description: "[Texas] Use a problem-solving model that incorporates analyzing given information, formulating a plan or strategy, determining a solution, justifying the solution, and evaluating the problem-solving process and the reasonableness of the solution." },
+        { code: "5.1.C", description: "[Texas] Select tools, including real objects, manipulatives, paper and pencil, and technology as appropriate, and techniques, including mental math, estimation, and number sense as appropriate, to solve problems." },
+        { code: "5.1.D", description: "[Texas] Communicate mathematical ideas, reasoning, and their implications using multiple representations, including symbols, diagrams, graphs, and language as appropriate." },
+        { code: "5.1.E", description: "[Texas] Create and use representations to organize, record, and communicate mathematical ideas." },
+        { code: "5.1.F", description: "[Texas] Analyze mathematical relationships to connect and communicate mathematical ideas." },
+        { code: "5.1.G", description: "[Texas] Display, explain, and justify mathematical ideas and arguments using precise mathematical language in written or oral communication." },
+        { code: "5.2.A", description: "[Texas] Represent the value of the digit in decimals through the thousandths using expanded notation and numerals." },
+        { code: "5.2.B", description: "[Texas] Compare and order two decimals to thousandths and represent comparisons using the symbols >, <, or =." },
+        { code: "5.2.C", description: "[Texas] Round decimals to tenths or hundredths." },
+        { code: "5.3.A", description: "[Texas] Estimate to determine solutions to mathematical and real-world problems involving addition, subtraction, multiplication, or division." },
+        { code: "5.3.B", description: "[Texas] Multiply with fluency a three-digit number by a two-digit number using the standard algorithm." },
+        { code: "5.3.C", description: "[Texas] Solve with proficiency for quotients of up to a four-digit dividend by a two-digit divisor using strategies and the standard algorithm." },
+        { code: "5.3.D", description: "[Texas] Represent multiplication of decimals with products to the hundredths using objects and pictorial models, including area models." },
+        { code: "5.3.E", description: "[Texas] Solve for products of decimals to the hundredths, including situations involving money, using strategies based on place-value understandings, properties of operations, and the relationship to the multiplication of whole numbers." },
+        { code: "5.3.F", description: "[Texas] Represent quotients of decimals to the hundredths, up to four-digit dividends and two-digit whole number divisors, using objects and pictorial models, including area models." },
+        { code: "5.3.G", description: "[Texas] Solve for quotients of decimals to the hundredths, up to four-digit dividends and two-digit whole number divisors, using strategies and algorithms, including the standard algorithm." },
+        { code: "5.3.H", description: "[Texas] Represent and solve addition and subtraction of fractions with unequal denominators referring to the same whole using objects and pictorial models and properties of operations." },
+        { code: "5.3.I", description: "[Texas] Represent and solve multiplication of a whole number and a fraction that refers to the same whole using objects and pictorial models, including area models." },
+        { code: "5.3.J", description: "[Texas] Represent division of a unit fraction by a whole number and the division of a whole number by a unit fraction such as 1/3 ÷ 7 and 7 ÷ 1/3 using objects and pictorial models, including area models." },
+        { code: "5.3.K", description: "[Texas] Add and subtract positive rational numbers fluently." },
+        { code: "5.3.L", description: "[Texas] Divide whole numbers by unit fractions and unit fractions by whole numbers." }
+      ]
+    },
+    ELA: {
+      "5th": [
+        { code: "5.1.A", description: "[Texas] Read grade-level text with fluency and comprehension. Use context to confirm or self-correct word recognition and understanding, rereading as necessary." },
+        { code: "5.2.A", description: "[Texas] Describe personal connections to a variety of sources, including self-selected texts." },
+        { code: "5.2.B", description: "[Texas] Write responses that demonstrate understanding of texts, including comparing and contrasting ideas across texts." },
+        { code: "5.3.A", description: "[Texas] Identify and explain the use of literary devices, including metaphor, simile, personification, and hyperbole." },
+        { code: "5.4.A", description: "[Texas] Use clear and concise language to communicate ideas effectively." },
+        { code: "5.5.A", description: "[Texas] Plan a first draft by selecting a genre for a particular purpose and audience." },
+        { code: "5.5.B", description: "[Texas] Develop drafts into a focused, structured, and coherent piece of writing." },
+        { code: "5.5.C", description: "[Texas] Revise drafts to improve sentence structure and word choice." },
+        { code: "5.5.D", description: "[Texas] Edit drafts using standard English conventions." }
+      ]
+    }
+  },
+  VA: {
+    Math: {
+      "5th": [
+        { code: "5.1", description: "[Virginia] The student, given a decimal through thousandths, will round to the nearest whole number, tenth, or hundredth." },
+        { code: "5.2", description: "[Virginia] The student will represent and identify equivalencies among fractions and decimals, with and without models." },
+        { code: "5.3", description: "[Virginia] The student will compare and order fractions, decimals, and mixed numbers." },
+        { code: "5.4", description: "[Virginia] The student will create and solve single-step and multistep practical problems involving addition, subtraction, multiplication, and division of whole numbers." },
+        { code: "5.5", description: "[Virginia] The student will estimate and determine the product and quotient of two numbers involving decimals." },
+        { code: "5.6", description: "[Virginia] The student will solve single-step and multistep practical problems involving addition and subtraction of fractions and mixed numbers." },
+        { code: "5.7", description: "[Virginia] The student will simplify whole number numerical expressions using the order of operations." },
+        { code: "5.8", description: "[Virginia] The student will describe and determine the perimeter of polygons and the area of rectangles and right triangles." },
+        { code: "5.9", description: "[Virginia] The student will identify equivalent measurements within the metric system." },
+        { code: "5.10", description: "[Virginia] The student will identify and describe the diameter, radius, chord, and circumference of a circle." },
+        { code: "5.11", description: "[Virginia] The student will solve practical problems related to elapsed time in hours and minutes within a 24-hour period." },
+        { code: "5.12", description: "[Virginia] The student will classify and measure right, acute, obtuse, and straight angles." },
+        { code: "5.13", description: "[Virginia] The student will classify triangles as right, acute, or obtuse and equilateral, scalene, or isosceles." },
+        { code: "5.14", description: "[Virginia] The student will recognize and describe the properties of plane figures including parallel, perpendicular, and intersecting lines." },
+        { code: "5.15", description: "[Virginia] The student will determine the probability of an outcome by constructing a sample space." },
+        { code: "5.16", description: "[Virginia] The student will represent data in line plots and stem-and-leaf plots." },
+        { code: "5.17", description: "[Virginia] The student will interpret data represented in line plots and stem-and-leaf plots." },
+        { code: "5.18", description: "[Virginia] The student will identify, describe, create, express, and extend number patterns found in objects, pictures, numbers, and tables." },
+        { code: "5.19", description: "[Virginia] The student will investigate and describe the concept of variable." },
+        { code: "5.20", description: "[Virginia] The student will write an equation to represent a given mathematical relationship, using a variable." }
+      ]
+    },
+    ELA: {
+      "5th": [
+        { code: "5.1", description: "[Virginia] The student will use effective oral communication skills in a variety of settings." },
+        { code: "5.2", description: "[Virginia] The student will use effective nonverbal communication skills." },
+        { code: "5.3", description: "[Virginia] The student will listen to and discuss a variety of literary and informational texts." },
+        { code: "5.4", description: "[Virginia] The student will expand vocabulary when reading." },
+        { code: "5.5", description: "[Virginia] The student will read and demonstrate comprehension of fictional texts, narrative nonfiction, and poetry." },
+        { code: "5.6", description: "[Virginia] The student will read and demonstrate comprehension of nonfiction texts." },
+        { code: "5.7", description: "[Virginia] The student will write in a variety of forms to include narrative, descriptive, expository, and persuasive." },
+        { code: "5.8", description: "[Virginia] The student will self- and peer-edit writing for capitalization, punctuation, spelling, sentence structure, paragraphing, and Standard English." },
+        { code: "5.9", description: "[Virginia] The student will find, evaluate, and select appropriate resources for a research product." }
+      ]
+    }
+  },
+  FL: {
+    Math: {
+      "5th": [
+        { code: "MA.5.NSO.1.1", description: "[Florida] Express a five-digit number in expanded form and standard form." },
+        { code: "MA.5.NSO.1.2", description: "[Florida] Compare multi-digit numbers using >, =, and < symbols." },
+        { code: "MA.5.NSO.1.3", description: "[Florida] Round multi-digit whole numbers to any place." },
+        { code: "MA.5.NSO.1.4", description: "[Florida] Multiply multi-digit whole numbers using a standard algorithm." },
+        { code: "MA.5.NSO.1.5", description: "[Florida] Divide multi-digit whole numbers using a standard algorithm." },
+        { code: "MA.5.NSO.2.1", description: "[Florida] Add and subtract multi-digit numbers with decimals to the thousandths." },
+        { code: "MA.5.NSO.2.2", description: "[Florida] Multiply and divide multi-digit numbers with decimals to the thousandths." },
+        { code: "MA.5.FR.1.1", description: "[Florida] Given a mathematical or real-world problem, represent the division of two whole numbers as a fraction." },
+        { code: "MA.5.FR.2.1", description: "[Florida] Add and subtract fractions with unlike denominators, including mixed numbers." },
+        { code: "MA.5.FR.2.2", description: "[Florida] Multiply a fraction by a fraction, including mixed numbers." },
+        { code: "MA.5.FR.2.3", description: "[Florida] Divide a unit fraction by a whole number and a whole number by a unit fraction." },
+        { code: "MA.5.AR.1.1", description: "[Florida] Solve multi-step real-world problems involving any combination of the four operations with whole numbers." },
+        { code: "MA.5.AR.1.2", description: "[Florida] Solve real-world problems involving the addition, subtraction, or multiplication of fractions." },
+        { code: "MA.5.AR.2.1", description: "[Florida] Translate written real-world and mathematical descriptions into numerical expressions and numerical expressions into written mathematical descriptions." },
+        { code: "MA.5.AR.2.2", description: "[Florida] Evaluate multi-step numerical expressions using order of operations." },
+        { code: "MA.5.AR.3.1", description: "[Florida] Given a numerical pattern, identify the rule and extend the pattern." },
+        { code: "MA.5.GR.1.1", description: "[Florida] Classify triangles or quadrilaterals into different categories based on shared defining attributes." },
+        { code: "MA.5.GR.1.2", description: "[Florida] Identify and classify three-dimensional figures into categories based on their defining attributes." },
+        { code: "MA.5.GR.2.1", description: "[Florida] Find the perimeter and area of rectangles with fractional or decimal side lengths." },
+        { code: "MA.5.GR.2.2", description: "[Florida] Find the volume of a right rectangular prism using a formula." },
+        { code: "MA.5.DP.1.1", description: "[Florida] Collect and represent numerical data, including fractional and decimal values, using tables, line graphs, or line plots." },
+        { code: "MA.5.DP.1.2", description: "[Florida] Interpret numerical data, including fractional and decimal values, represented with tables, line graphs, or line plots." }
+      ]
+    },
+    ELA: {
+      "5th": [
+        { code: "ELA.5.R.1.1", description: "[Florida] Analyze how setting, events, conflict, and characterization contribute to the plot in a literary text." },
+        { code: "ELA.5.R.1.2", description: "[Florida] Analyze the development of a theme in a literary text." },
+        { code: "ELA.5.R.2.1", description: "[Florida] Explain how text features contribute to the meaning of an informational text." },
+        { code: "ELA.5.R.2.2", description: "[Florida] Explain how the organizational structure of an informational text contributes to the meaning." },
+        { code: "ELA.5.R.3.1", description: "[Florida] Analyze figurative language, including similes, metaphors, personification, and idioms." },
+        { code: "ELA.5.C.1.1", description: "[Florida] Write narratives that develop real or imagined experiences using effective technique, descriptive details, and clear event sequences." },
+        { code: "ELA.5.C.1.2", description: "[Florida] Write opinion pieces that support a point of view with reasons and evidence." },
+        { code: "ELA.5.C.1.3", description: "[Florida] Write expository texts to explain a topic with facts, definitions, and examples." },
+        { code: "ELA.5.C.2.1", description: "[Florida] Present information orally, in a logical sequence, using nonverbal cues, appropriate volume, and clear pronunciation." },
+        { code: "ELA.5.C.3.1", description: "[Florida] Follow the rules of standard English grammar, punctuation, capitalization, and spelling appropriate to grade level." },
+        { code: "ELA.5.V.1.1", description: "[Florida] Use grade-level academic vocabulary appropriately in speaking and writing." },
+        { code: "ELA.5.V.1.2", description: "[Florida] Determine the meaning of words using context clues, affixes, and root words." }
+      ]
+    }
   }
-}
+};
 
 function normalizeGradeLevel(gradeLevel) {
   const map = {
@@ -154,9 +286,9 @@ function normalizeGradeLevel(gradeLevel) {
   return map[key] || gradeLevel;
 }
 
-function formatStandardsText(subject, gradeLevel, standards) {
+function formatStandardsText(stateName, subject, gradeLevel, standards) {
   if (!standards || standards.length === 0) return null;
-  let text = `Illinois Learning Standards for ${subject} ${gradeLevel} Grade:\n\n`;
+  let text = `${stateName} Learning Standards for ${subject} ${gradeLevel} Grade:\n\n`;
   standards.forEach((s, i) => {
     text += `${i + 1}. ${s.code}: ${s.description}\n`;
   });
@@ -183,11 +315,18 @@ function getStrictnessGuidance(gradeLevel) {
 }
 
 function buildAutoRubricInstructions(gradeLevel, subject, standardsText) {
+  const standardSubjects = ['Math', 'Reading', 'Writing', 'Science', 'Other'];
+  const isCustomSubject = !standardSubjects.includes(subject);
+  
   const standardsBlock = standardsText
     ? `\nSTANDARDS REFERENCE (use these as your rubric backbone — the auto-generated correct answers and point values MUST be defensible against these standards):\n${standardsText}\n`
     : `\nNo standards were loaded. Fall back to general ${subject} norms for grade ${gradeLevel}.\n`;
 
-  return `RUBRIC MODE: AUTO-GENERATED (no teacher answer key provided)\n\nFor each question in the student's submission, you must:\n1. Infer the most likely correct answer using:\n   - The question text from OCR\n   - Grade ${gradeLevel} ${subject} expectations\n   - The standards reference below\n2. Assign points_possible using these per-question heuristics:\n   - Multiple-choice / single number / short fill-in: 1 point\n   - Multi-step math / short constructed response: 2-3 points\n   - Multi-part question (e.g. "2a, 2b, 2c"): list each sub-part; each sub-part 1-2 points\n   - Extended response / short essay (3+ sentences expected): 4-5 points\n3. When a question is ambiguous or under-specified, prefer the simpler answer typical of grade-level classroom work. Bias toward allowing partial credit.\n${standardsBlock}\nIn your JSON output, populate "correct_answer" with the inferred answer (so the teacher can review it). Set "points_possible" per the heuristics above. Set "is_correct" and "points_earned" based on how the student's answer compares to the inferred correct answer.`;
+  const subjectContext = isCustomSubject
+    ? `\nIMPORTANT: "${subject}" is a CUSTOM SUBJECT created by the teacher. There are no standard curriculum standards for this subject. Use your general knowledge of what ${gradeLevel} students would typically learn in "${subject}" (skills, concepts, vocabulary, techniques appropriate for this grade level). Apply appropriate expectations for a ${gradeLevel} classroom setting.\n`
+    : '';
+
+  return `RUBRIC MODE: AUTO-GENERATED (no teacher answer key provided)\n\nFor each question in the student's submission, you must:\n1. Infer the most likely correct answer using:\n   - The question text from OCR\n   - Grade ${gradeLevel} ${subject} expectations\n   - The standards reference below\n2. Assign points_possible using these per-question heuristics:\n   - Multiple-choice / single number / short fill-in: 1 point\n   - Multi-step math / short constructed response: 2-3 points\n   - Multi-part question (e.g. "2a, 2b, 2c"): list each sub-part; each sub-part 1-2 points\n   - Extended response / short essay (3+ sentences expected): 4-5 points\n3. When a question is ambiguous or under-specified, prefer the simpler answer typical of grade-level classroom work. Bias toward allowing partial credit.${subjectContext}${standardsBlock}\nIn your JSON output, populate "correct_answer" with the inferred answer (so the teacher can review it). Set "points_possible" per the heuristics above. Set "is_correct" and "points_earned" based on how the student's answer compares to the inferred correct answer.`;
 }
 
 function buildAnswerKeyRubricInstructions() {
@@ -359,11 +498,77 @@ app.get('/api/auth/google/callback', async (req, res) => {
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   const { code, state, error: googleError } = req.query;
 
+  // Helper: return HTML page with JS redirect to ensure cookies are stored
+  function htmlRedirect(url, title = 'Redirecting...') {
+    return res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #fef7ee 0%, #fdf4e3 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .loader { text-align: center; animation: fadeIn 0.3s ease-out; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #e5e7eb; border-top-color: #f59e0b; border-radius: 50%;
+      margin: 0 auto 24px; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    h1 { color: #1f2937; font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; }
+    p { color: #6b7280; font-size: 0.95rem; }
+    .brand { color: #f59e0b; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="loader">
+    <div class="spinner" aria-label="Loading"></div>
+    <h1>${title}</h1>
+    <p>Redirecting...</p>
+  </div>
+  <script>
+    // Wait for cookies to be stored (SameSite=Lax needs time on cross-site nav)
+    const maxWait = 2000;
+    const start = Date.now();
+    const cookieNames = ['access_token', 'refresh_token'];
+    
+    function cookiesReady() {
+      return cookieNames.every(name => document.cookie.split('; ').some(row => row.startsWith(name + '=')));
+    }
+    
+    function attemptRedirect() {
+      if (cookiesReady() || Date.now() - start > maxWait) {
+        window.location.href = '${url}';
+      } else {
+        setTimeout(attemptRedirect, 50);
+      }
+    }
+    
+    setTimeout(attemptRedirect, 100);
+    
+    setTimeout(() => {
+      if (!cookiesReady()) {
+        document.write('<meta http-equiv="refresh" content="0;url=${url}">');
+      }
+    }, maxWait + 100);
+  </script>
+</body>
+</html>
+    `);
+  }
+
   if (googleError) {
-    return res.redirect(
-      302,
-      `${FRONTEND_URL}/?auth_error=${encodeURIComponent(googleError)}`
-    );
+    return htmlRedirect(`${FRONTEND_URL}/?auth_error=${encodeURIComponent(googleError)}`, 'Access Denied');
   }
   if (!code)
     return res.status(400).json({ error: 'Missing authorization code' });
@@ -387,24 +592,24 @@ app.get('/api/auth/google/callback', async (req, res) => {
     const tokenText = await tokenResponse.text();
     if (!tokenResponse.ok) {
       console.error('Google token exchange failed:', tokenText);
-      return res.redirect(302, `${FRONTEND_URL}/?auth_error=token_exchange_failed`);
+      return htmlRedirect(`${FRONTEND_URL}/?auth_error=token_exchange_failed`, 'Sign In Failed');
     }
 
     let tokens;
     try {
       tokens = JSON.parse(tokenText);
     } catch {
-      return res.redirect(302, `${FRONTEND_URL}/?auth_error=token_exchange_failed`);
+      return htmlRedirect(`${FRONTEND_URL}/?auth_error=token_exchange_failed`, 'Sign In Failed');
     }
 
     const { id_token } = tokens;
     if (!id_token)
-      return res.redirect(302, `${FRONTEND_URL}/?auth_error=no_id_token`);
+      return htmlRedirect(`${FRONTEND_URL}/?auth_error=no_id_token`, 'Sign In Failed');
 
     // 2. Decode ID token
     const idParts = id_token.split('.');
     if (idParts.length !== 3)
-      return res.redirect(302, `${FRONTEND_URL}/?auth_error=invalid_id_token`);
+      return htmlRedirect(`${FRONTEND_URL}/?auth_error=invalid_id_token`, 'Sign In Failed');
 
     const payload = JSON.parse(
       Buffer.from(
@@ -419,7 +624,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     const avatarUrl = payload.picture || null;
 
     if (!googleId || !email)
-      return res.redirect(302, `${FRONTEND_URL}/?auth_error=missing_user_info`);
+      return htmlRedirect(`${FRONTEND_URL}/?auth_error=missing_user_info`, 'Sign In Failed');
 
     // 3. Lookup or create user
     const client = await getClient();
@@ -448,7 +653,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
         if (existingEmail.rows.length > 0) {
           const existing = existingEmail.rows[0];
           if (existing.google_id) {
-            return res.redirect(302, `${FRONTEND_URL}/?auth_error=email_conflict`);
+            return htmlRedirect(`${FRONTEND_URL}/?auth_error=email_conflict`, 'Email Conflict');
           }
           await client.query(
             'UPDATE users SET google_id = $1, email_verified = TRUE, avatar_url = COALESCE($2, avatar_url), name = COALESCE($3, name), updated_at = NOW() WHERE id = $4',
@@ -495,7 +700,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
       setAccessTokenCookie(res, accessToken);
       setRefreshTokenCookie(res, refreshToken);
 
-      // 5. Redirect to frontend
+      // 5. Redirect to frontend — use HTML with JS redirect to ensure cookies are stored
       let appRedirect = '/';
       if (state) {
         try {
@@ -509,13 +714,82 @@ app.get('/api/auth/google/callback', async (req, res) => {
         } catch { /* invalid state, default to / */ }
       }
 
-      return res.redirect(302, `${FRONTEND_URL}${appRedirect}`);
+      // Return HTML page with JS redirect — ensures cookies are stored before navigation
+      // This is the standard OAuth pattern to handle cookie timing issues
+      const redirectUrl = `${FRONTEND_URL}${appRedirect}`;
+      return res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signing you in...</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #fef7ee 0%, #fdf4e3 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .loader { text-align: center; animation: fadeIn 0.3s ease-out; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #e5e7eb; border-top-color: #f59e0b; border-radius: 50%;
+      margin: 0 auto 24px; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    h1 { color: #1f2937; font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; }
+    p { color: #6b7280; font-size: 0.95rem; }
+    .brand { color: #f59e0b; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="loader">
+    <div class="spinner" aria-label="Loading"></div>
+    <h1>Welcome back <span class="brand">Skyler</span></h1>
+    <p>Redirecting you to HomeworkHelper...</p>
+  </div>
+  <script>
+    // Wait for cookies to be stored (SameSite=Lax needs time on cross-site nav)
+    const maxWait = 2000; // max 2 seconds
+    const start = Date.now();
+    const cookieNames = ['access_token', 'refresh_token'];
+    
+    function cookiesReady() {
+      return cookieNames.every(name => document.cookie.split('; ').some(row => row.startsWith(name + '=')));
+    }
+    
+    function attemptRedirect() {
+      if (cookiesReady() || Date.now() - start > maxWait) {
+        window.location.href = '${redirectUrl}';
+      } else {
+        setTimeout(attemptRedirect, 50);
+      }
+    }
+    
+    // Start checking after a brief pause
+    setTimeout(attemptRedirect, 100);
+    
+    // Fallback: meta refresh after maxWait
+    setTimeout(() => {
+      if (!cookiesReady()) {
+        document.write('<meta http-equiv="refresh" content="0;url=${redirectUrl}">');
+      }
+    }, maxWait + 100);
+  </script>
+</body>
+</html>
+      `);
     } finally {
       client.release();
     }
   } catch (error) {
     console.error('Google callback error:', error);
-    return res.redirect(302, `${FRONTEND_URL}/?auth_error=internal_error`);
+    return res.redirect(303, `${FRONTEND_URL}/?auth_error=internal_error`);
   }
 });
 
@@ -900,6 +1174,165 @@ app.post('/api/auth/unlink-google', async (req, res) => {
     client.release();
   }
 });
+// ── User Preferences Endpoints ──────────────────────────────────
+// PATCH /api/user/preferences — Update user preferences (state, grade, subject)
+app.patch('/api/user/preferences', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const { state_code, grade_level, subject } = req.body || {};
+  
+  // Validate state_code if provided
+  if (state_code !== undefined && state_code !== null && state_code !== '') {
+    const validStates = [
+      'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
+      'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+      'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
+      'VA','WA','WV','WI','WY'
+    ];
+    if (!validStates.includes(state_code.toUpperCase())) {
+      return res.status(400).json({ error: 'Invalid state code' });
+    }
+  }
+
+  const client = await getClient();
+  try {
+    // Upsert preferences
+    await client.query(
+      `INSERT INTO user_preferences (user_id, state_code, grade_level, subject, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         state_code = COALESCE($2, user_preferences.state_code),
+         grade_level = COALESCE($3, user_preferences.grade_level),
+         subject = COALESCE($4, user_preferences.subject),
+         updated_at = NOW()`,
+      [user.id, state_code?.toUpperCase() || null, grade_level || null, subject || null]
+    );
+
+    // Return updated preferences
+    const result = await client.query(
+      'SELECT state_code, grade_level, subject FROM user_preferences WHERE user_id = $1',
+      [user.id]
+    );
+
+    return res.status(200).json({ preferences: result.rows[0] || {} });
+  } catch (error) {
+    console.error('Update preferences error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/user/preferences — Get user preferences
+app.get('/api/user/preferences', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      'SELECT state_code, grade_level, subject FROM user_preferences WHERE user_id = $1',
+      [user.id]
+    );
+
+    return res.status(200).json({ preferences: result.rows[0] || {} });
+  } catch (error) {
+    console.error('Get preferences error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/user/custom-subjects — Get user's custom subjects
+app.get('/api/user/custom-subjects', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      'SELECT subject_name, subject_code, created_at FROM user_custom_subjects WHERE user_id = $1 ORDER BY created_at',
+      [user.id]
+    );
+
+    return res.status(200).json({ customSubjects: result.rows });
+  } catch (error) {
+    console.error('Get custom subjects error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/user/custom-subjects — Add a custom subject
+app.post('/api/user/custom-subjects', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const { subjectName } = req.body;
+  if (!subjectName || typeof subjectName !== 'string') {
+    return res.status(400).json({ error: 'subjectName is required' });
+  }
+
+  const trimmed = subjectName.trim();
+  if (trimmed.length === 0 || trimmed.length > 100) {
+    return res.status(400).json({ error: 'Subject name must be 1-100 characters' });
+  }
+
+  // Generate a URL-safe code from the subject name
+  const subjectCode = trimmed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    .substring(0, 50);
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      `INSERT INTO user_custom_subjects (user_id, subject_name, subject_code)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, subject_name) DO UPDATE SET subject_code = EXCLUDED.subject_code
+       RETURNING subject_name, subject_code, created_at`,
+      [user.id, trimmed, subjectCode]
+    );
+
+    return res.status(201).json({ customSubject: result.rows[0] });
+  } catch (error) {
+    console.error('Add custom subject error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/user/custom-subjects/:subjectCode — Delete a custom subject
+app.delete('/api/user/custom-subjects/:subjectCode', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const { subjectCode } = req.params;
+
+  const client = await getClient();
+  try {
+    const result = await client.query(
+      'DELETE FROM user_custom_subjects WHERE user_id = $1 AND subject_code = $2 RETURNING subject_name',
+      [user.id, subjectCode]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Custom subject not found' });
+    }
+
+    return res.status(200).json({ success: true, deleted: result.rows[0].subject_name });
+  } catch (error) {
+    console.error('Delete custom subject error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
 
 // ── Billing / Subscription Endpoints ──────────────────────────────────
 
@@ -989,6 +1422,108 @@ app.post('/api/billing/create-checkout-session', async (req, res) => {
   }
 });
 
+// POST /api/billing/create-checkout-session — Start a new subscription (supports monthly or annual)
+app.post('/api/billing/create-checkout-session', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  const { planType } = req.body; // 'monthly' or 'annual'
+  const isAnnual = planType === 'annual';
+
+  const Stripe = (await import('stripe')).default;
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia',
+  });
+
+  const client = await getClient();
+  try {
+    // Check if user already has a Stripe customer
+    const userResult = await client.query(
+      'SELECT stripe_customer_id, subscription_status, stripe_subscription_id FROM users WHERE id = $1',
+      [user.id]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const dbUser = userResult.rows[0];
+
+    // If user already has an active/trialing subscription, redirect to portal
+    if (dbUser.subscription_status === 'active' || dbUser.subscription_status === 'trialing') {
+      return res.status(400).json({
+        error: 'You already have an active subscription. Use the billing portal to manage it.',
+        code: 'SUBSCRIPTION_EXISTS',
+      });
+    }
+
+    let customerId = dbUser.stripe_customer_id;
+
+    // Create Stripe customer if needed
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name || user.email.split('@')[0],
+        metadata: { user_id: user.id },
+      });
+      customerId = customer.id;
+
+      await client.query(
+        'UPDATE users SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
+        [customerId, user.id]
+      );
+    }
+
+    // Get the price ID from env based on plan type
+    const priceId = isAnnual 
+      ? process.env.STRIPE_TEACHER_ANNUAL_PRICE_ID 
+      : process.env.STRIPE_PRICE_ID;
+      
+    if (!priceId) {
+      const missing = isAnnual ? 'STRIPE_TEACHER_ANNUAL_PRICE_ID' : 'STRIPE_PRICE_ID';
+      console.error(`${missing} not configured`);
+      return res.status(500).json({ error: 'Billing not configured' });
+    }
+
+    // Create Checkout Session
+    // Both monthly and annual are subscriptions
+    // Monthly: 7-day trial, bills monthly
+    // Annual: No trial, bills annually on purchase anniversary
+    const sessionParams = {
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.APP_URL}/settings?billing=success&plan=${isAnnual ? 'annual' : 'monthly'}`,
+      cancel_url: `${process.env.APP_URL}/settings?billing=canceled`,
+      metadata: { user_id: user.id, plan_type: isAnnual ? 'annual' : 'monthly' },
+      allow_promotion_codes: false,
+      subscription_data: {
+        metadata: { user_id: user.id, plan_type: isAnnual ? 'annual' : 'monthly' },
+      },
+    };
+
+    // Only add trial for monthly subscriptions
+    if (!isAnnual) {
+      sessionParams.subscription_data.trial_period_days = 7;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    return res.status(200).json({ url: session.url, planType: isAnnual ? 'annual' : 'monthly' });
+  } catch (error) {
+    console.error('Create checkout session error:', error);
+    return res.status(500).json({ error: 'Failed to create checkout session' });
+  } finally {
+    client.release();
+  }
+});
+
 // POST /api/billing/portal-session — Open Stripe Billing Portal
 app.post('/api/billing/portal-session', async (req, res) => {
   const user = requireAuth(req, res);
@@ -1052,6 +1587,9 @@ app.get('/api/billing/status', async (req, res) => {
 
     const u = userResult.rows[0];
 
+    // Check if it's an annual plan
+    const isAnnual = u.stripe_subscription_id?.startsWith('annual_');
+
     // Compute trial days remaining if in trial
     let trialDaysRemaining = null;
     if (u.subscription_status === 'trialing' && u.stripe_trial_end) {
@@ -1065,6 +1603,19 @@ app.get('/api/billing/status', async (req, res) => {
       }
     }
 
+    // Compute annual plan days remaining
+    let annualDaysRemaining = null;
+    if (isAnnual && u.stripe_current_period_end) {
+      const now = new Date();
+      const periodEnd = new Date(u.stripe_current_period_end);
+      const diffMs = periodEnd - now;
+      if (diffMs > 0) {
+        annualDaysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      } else {
+        annualDaysRemaining = 0;
+      }
+    }
+
     return res.status(200).json({
       subscription_status: u.subscription_status,
       stripe_subscription_status: u.stripe_subscription_status,
@@ -1073,6 +1624,8 @@ app.get('/api/billing/status', async (req, res) => {
       current_period_end: u.stripe_current_period_end,
       trial_end: u.stripe_trial_end,
       trial_days_remaining: trialDaysRemaining,
+      annual_days_remaining: annualDaysRemaining,
+      is_annual_plan: isAnnual,
       has_customer: !!u.stripe_customer_id,
     });
   } catch (error) {
@@ -1784,13 +2337,37 @@ app.post('/api/batch-grade/override', async (req, res) => {
 });
 
 app.post('/api/get-standard', (req, res) => {
-  const { gradeLevel, subject } = req.body;
+  const { gradeLevel, subject, stateCode } = req.body;
   if (!gradeLevel || !subject)
     return res
       .status(400)
       .json({ error: 'Missing required fields: gradeLevel, subject' });
 
-  const data = loadStandards();
+  // State code handling
+  const stateCodeUpper = (stateCode || 'IL').toUpperCase();
+  const validStates = {
+    'IL': 'Illinois', 'CA': 'California', 'TX': 'Texas', 'FL': 'Florida',
+    'VA': 'Virginia', 'NY': 'New York', 'PA': 'Pennsylvania', 'OH': 'Ohio',
+    'GA': 'Georgia', 'NC': 'North Carolina', 'MI': 'Michigan'
+  };
+  const stateName = validStates[stateCodeUpper] || 'Illinois';
+
+  // Check if state has specific standards (non-Common Core)
+  const stateInfo = states[stateCodeUpper];
+  const hasStateStandards = stateInfo && stateInfo.source !== 'commonCore';
+  
+  let data;
+  let standardsSource;
+  if (hasStateStandards && stateStandards[stateCodeUpper]) {
+    // Use state-specific standards
+    data = stateStandards[stateCodeUpper];
+    standardsSource = 'state';
+  } else {
+    // Use Common Core standards
+    data = commonCore;
+    standardsSource = 'commonCore';
+  }
+  
   if (!data)
     return res
       .status(500)
@@ -1802,22 +2379,25 @@ app.post('/api/get-standard', (req, res) => {
   if (!subjectData)
     return res.status(200).json({
       standardsText: null,
-      error: `Subject "${subject}" not found in standards data`,
+      error: `Subject "${subject}" not found in ${standardsSource} standards data`,
     });
 
   const standards = subjectData[normGrade];
   if (!standards || standards.length === 0)
     return res.status(200).json({
       standardsText: null,
-      error: `No standards found for ${subject} ${normGrade}`,
+      error: `No standards found for ${subject} ${normGrade} (using ${stateName} ${standardsSource} standards)`,
     });
 
-  const standardsText = formatStandardsText(subject, normGrade, standards);
+  const standardsText = formatStandardsText(stateName, subject, normGrade, standards);
   return res.status(200).json({
     standardsText,
     error: null,
     gradeLevel: normGrade,
     subject,
+    stateCode: stateCodeUpper,
+    stateName,
+    standardsSource,
     count: standards.length,
   });
 });
@@ -1825,11 +2405,19 @@ app.post('/api/get-standard', (req, res) => {
 
 async function handleCheckoutCompleted(client, stripe, session) {
   const userId = session.metadata?.user_id;
+  const planType = session.metadata?.plan_type; // 'monthly' or 'annual'
+  const isAnnual = planType === 'annual';
   const subscriptionId = session.subscription;
   const customerId = session.customer;
 
-  if (!userId || !subscriptionId) {
+  if (!userId) {
     console.error('Missing metadata in checkout.session.completed:', session.id);
+    return;
+  }
+
+  // For both plans, we get a subscription object
+  if (!subscriptionId) {
+    console.error('Missing subscription in checkout.session.completed:', session.id);
     return;
   }
 
@@ -1843,6 +2431,14 @@ async function handleCheckoutCompleted(client, stripe, session) {
     ? new Date(subscription.trial_end * 1000).toISOString()
     : null;
 
+  // For annual plans, set access period to 9 months from now
+  let accessPeriodEnd = currentPeriodEnd;
+  if (isAnnual) {
+    const nineMonthsFromNow = new Date();
+    nineMonthsFromNow.setMonth(nineMonthsFromNow.getMonth() + 9);
+    accessPeriodEnd = nineMonthsFromNow.toISOString();
+  }
+
   await client.query(
     `UPDATE users SET
        stripe_customer_id = $1,
@@ -1851,8 +2447,10 @@ async function handleCheckoutCompleted(client, stripe, session) {
        stripe_price_id = $4,
        stripe_current_period_end = $5,
        stripe_trial_end = $6,
+       stripe_access_period_end = $7,
+       subscription_status = 'active',
        updated_at = NOW()
-     WHERE id = $7`,
+     WHERE id = $8`,
     [
       customerId,
       subscriptionId,
@@ -1860,11 +2458,12 @@ async function handleCheckoutCompleted(client, stripe, session) {
       subscription.items.data[0]?.price?.id || null,
       currentPeriodEnd,
       trialEnd,
+      accessPeriodEnd,
       userId,
     ]
   );
 
-  console.log(`Checkout completed for user ${userId}: sub ${subscriptionId} status ${subscription.status}`);
+  console.log(`Checkout completed for user ${userId}: sub ${subscriptionId} status ${subscription.status} ${isAnnual ? '(annual)' : '(monthly)'}`);
 }
 
 async function handleSubscriptionUpdate(client, subscription) {
@@ -1942,6 +2541,245 @@ async function handleSubscriptionDeleted(client, subscription) {
 
   console.log(`Subscription deleted for user ${userId}: sub ${subscription.id}`);
 }
+
+// ============================================================
+// GOOGLE CLASSROOM ROUTES
+// ============================================================
+
+// Connect - initiate OAuth flow
+app.post('/api/classroom/connect', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const redirect = req.body?.redirect || '/classroom';
+    const authUrl = getClassroomAuthUrl({ redirect, userId });
+    return res.json({ authUrl });
+  } catch (error) {
+    console.error('Classroom connect error:', error);
+    return res.status(500).json({ error: 'Failed to initiate Classroom connection' });
+  }
+});
+
+// Callback - handle OAuth return
+app.get('/api/classroom/callback', async (req, res) => {
+  const { code, state, error: googleError } = req.query;
+
+  if (googleError) {
+    return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=${encodeURIComponent(googleError)}`);
+  }
+  if (!code) return res.status(400).json({ error: 'Missing authorization code' });
+
+  try {
+    const tokens = await exchangeClassroomCode(code);
+    
+    // Extract userId from state
+    let userId = null;
+    if (state) {
+      try {
+        const stateData = JSON.parse(
+          Buffer.from(state.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+        );
+        userId = stateData.userId;
+      } catch { /* ignore */ }
+    }
+
+    // If no userId in state, try to get from session (fallback)
+    if (!userId) {
+      const accessToken = getCookie(req, 'access_token');
+      if (accessToken) {
+        const payload = verifyAccessToken(accessToken);
+        userId = payload?.sub;
+      }
+    }
+
+    if (!userId) {
+      return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=no_user_context`);
+    }
+
+    await storeClassroomTokens(userId, tokens);
+
+    // Redirect to frontend with success
+    let appRedirect = '/classroom';
+    if (state) {
+      try {
+        const stateData = JSON.parse(
+          Buffer.from(state.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+        );
+        if (stateData.redirect) appRedirect = stateData.redirect;
+      } catch { /* ignore */ }
+    }
+
+    return res.redirect(303, `${FRONTEND_URL}${appRedirect}?classroom_connected=true`);
+  } catch (error) {
+    console.error('Classroom callback error:', error);
+    return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=callback_failed`);
+  }
+});
+
+// Status - check connection
+app.get('/api/classroom/status', requireAuth, async (req, res) => {
+  try {
+    const status = await getClassroomConnectionStatus(req.user.sub);
+    return res.json(status);
+  } catch (error) {
+    console.error('Classroom status error:', error);
+    return res.status(500).json({ error: 'Failed to get Classroom status' });
+  }
+});
+
+// Disconnect - revoke tokens
+app.delete('/api/classroom/disconnect', requireAuth, async (req, res) => {
+  try {
+    await revokeClassroomTokens(req.user.sub);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Classroom disconnect error:', error);
+    return res.status(500).json({ error: 'Failed to disconnect Classroom' });
+  }
+});
+
+// Sync - trigger full sync
+app.post('/api/classroom/sync', requireAuth, async (req, res) => {
+  try {
+    const result = await syncUserClassroom(req.user.sub);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Classroom sync error:', error);
+    return res.status(500).json({ error: error.message || 'Sync failed' });
+  }
+});
+
+// Get courses
+app.get('/api/classroom/courses', requireAuth, async (req, res) => {
+  try {
+    const client = await getClient();
+    try {
+      const result = await client.query(
+        `SELECT id, gc_course_id, name, section, subject, room, course_state, alternate_link, guardian_enabled, calendar_id, synced_at
+         FROM classroom_courses WHERE user_id = $1 ORDER BY name`,
+        [req.user.sub]
+      );
+      return res.json({ courses: result.rows });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Classroom courses error:', error);
+    return res.status(500).json({ error: 'Failed to get courses' });
+  }
+});
+
+// Get assignments for a course
+app.get('/api/classroom/courses/:courseId/assignments', requireAuth, async (req, res) => {
+  try {
+    const client = await getClient();
+    try {
+      // Verify course belongs to user
+      const courseCheck = await client.query(
+        'SELECT id FROM classroom_courses WHERE id = $1 AND user_id = $2',
+        [req.params.courseId, req.user.sub]
+      );
+      if (courseCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Course not found' });
+      }
+
+      const result = await client.query(
+        `SELECT id, gc_coursework_id, title, description, state, alternate_link, creation_time, update_time, due_date, due_time, max_points, work_type, synced_at
+         FROM classroom_assignments WHERE course_id = $1 ORDER BY creation_time DESC`,
+        [req.params.courseId]
+      );
+      return res.json({ assignments: result.rows });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Classroom assignments error:', error);
+    return res.status(500).json({ error: 'Failed to get assignments' });
+  }
+});
+
+// Get submissions for an assignment
+app.get('/api/classroom/assignments/:assignmentId/submissions', requireAuth, async (req, res) => {
+  try {
+    const client = await getClient();
+    try {
+      // Verify assignment belongs to user's course
+      const assignmentCheck = await client.query(
+        `SELECT a.id FROM classroom_assignments a
+         JOIN classroom_courses c ON a.course_id = c.id
+         WHERE a.id = $1 AND c.user_id = $2`,
+        [req.params.assignmentId, req.user.sub]
+      );
+      if (assignmentCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Assignment not found' });
+      }
+
+      const result = await client.query(
+        `SELECT id, gc_submission_id, gc_user_id, student_name, student_email, state, assigned_grade, draft_grade, late, creation_time, update_time, synced_at, grading_session_id
+         FROM classroom_submissions WHERE assignment_id = $1 ORDER BY student_name`,
+        [req.params.assignmentId]
+      );
+      return res.json({ submissions: result.rows });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Classroom submissions error:', error);
+    return res.status(500).json({ error: 'Failed to get submissions' });
+  }
+});
+
+// Grade a submission and push to Classroom
+app.post('/api/classroom/submissions/:submissionId/grade', requireAuth, async (req, res) => {
+  try {
+    const client = await getClient();
+    try {
+      // Verify submission belongs to user
+      const subCheck = await client.query(
+        `SELECT cs.id FROM classroom_submissions cs
+         JOIN classroom_assignments ca ON cs.assignment_id = ca.id
+         JOIN classroom_courses cc ON ca.course_id = cc.id
+         WHERE cs.id = $1 AND cc.user_id = $2`,
+        [req.params.submissionId, req.user.sub]
+      );
+      if (subCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Submission not found' });
+      }
+
+      const { gradingResult } = req.body;
+      if (!gradingResult) {
+        return res.status(400).json({ error: 'gradingResult required' });
+      }
+
+      const result = await pushGradeToClassroom(req.user.sub, req.params.submissionId, gradingResult);
+      return res.json({ success: true, ...result });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Classroom grade push error:', error);
+    return res.status(500).json({ error: error.message || 'Grade push failed' });
+  }
+});
+
+// Sync log for debugging
+app.get('/api/classroom/sync-log', requireAuth, async (req, res) => {
+  try {
+    const client = await getClient();
+    try {
+      const result = await client.query(
+        `SELECT id, sync_type, status, items_processed, items_created, items_updated, items_failed, error_message, started_at, completed_at
+         FROM classroom_sync_log WHERE user_id = $1 ORDER BY started_at DESC LIMIT 50`,
+        [req.user.sub]
+      );
+      return res.json({ logs: result.rows });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Classroom sync log error:', error);
+    return res.status(500).json({ error: 'Failed to get sync log' });
+  }
+});
 
 // ── Health check ──────────────────────────────────────────────────────
 
