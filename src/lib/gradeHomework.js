@@ -24,15 +24,15 @@ function fileToBase64(file) {
 }
 
 /**
- * Fetch IBSE standards for grade/subject. Public endpoint — no auth needed.
+ * Fetch state standards for grade/subject. Public endpoint — no auth needed.
  * Returns plain text dump or null if unavailable.
  */
-async function fetchStandards(gradeLevel, subject) {
+async function fetchStandards(gradeLevel, subject, stateCode) {
   try {
     const response = await fetch('/api/get-standard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gradeLevel, subject }),
+      body: JSON.stringify({ gradeLevel, subject, stateCode }),
     });
 
     if (!response.ok) {
@@ -98,10 +98,10 @@ async function authFetch(url, options = {}) {
  * Extract handwriting from homework image.
  * Calls POST /api/extract (auth-protected).
  */
-export async function extractHandwriting(imageFile, gradeLevel, subject) {
+export async function extractHandwriting(imageFile, gradeLevel, subject, stateCode) {
   const imageBase64 = await fileToBase64(imageFile);
   const mimeType = imageFile.type || 'image/jpeg';
-  const standardsText = await fetchStandards(gradeLevel, subject);
+  const standardsText = await fetchStandards(gradeLevel, subject, stateCode);
 
   const response = await authFetch('/api/extract', {
     method: 'POST',
@@ -132,8 +132,8 @@ export async function extractHandwriting(imageFile, gradeLevel, subject) {
  * Grade the submission.
  * Calls POST /api/grade (auth-protected).
  */
-export async function gradeSubmission(extractedQuestions, rubric, gradeLevel, subject, standardsText = null) {
-  const standards = standardsText || (rubric ? null : await fetchStandards(gradeLevel, subject));
+export async function gradeSubmission(extractedQuestions, rubric, gradeLevel, subject, stateCode, standardsText = null) {
+  const standards = standardsText || (rubric ? null : await fetchStandards(gradeLevel, subject, stateCode));
 
   const response = await authFetch('/api/grade', {
     method: 'POST',
