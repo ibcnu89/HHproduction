@@ -183,12 +183,17 @@ export default function AuthPage() {
     try {
       if (isRegister) {
         await register(name, email, password);
-        // Registration succeeded — show a brief success banner before auth redirect
+        // Registration succeeded — redirect to the app
         setSuccess('Account created! Welcome to HomeworkHelper.');
-        // AuthContext already fetched user — App will switch to GradingApp on next render.
-        // Keep the success banner visible briefly; the transition is handled by App.jsx.
+        setTimeout(() => {
+          window.location.href = '/apps/homeworkhelper';
+        }, 1000);
       } else {
         await login(email, password, rememberMe);
+        // Login succeeded — redirect to the app (or intended destination)
+        const params = new URLSearchParams(window.location.search);
+        const redirectTo = params.get('redirect') || '/apps/homeworkhelper';
+        window.location.href = redirectTo;
       }
     } catch (err) {
       // Parse structured error codes from register endpoint
