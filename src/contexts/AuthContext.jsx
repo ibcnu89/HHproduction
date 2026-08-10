@@ -125,9 +125,8 @@ export function AuthProvider({ children }) {
    * Sign in with Google via full-page redirect (no popup).
    */
   const loginWithGoogle = useCallback(async () => {
-    // Save current path so the callback can redirect back here
-    const returnPath = window.location.pathname + window.location.search;
-    const redirectParam = encodeURIComponent(returnPath);
+    // Always redirect to the app after Google OAuth
+    const redirectParam = encodeURIComponent('/apps/homeworkhelper');
 
     // Full-page redirect to the Google OAuth flow
     window.location.href = `/api/auth/google?redirect=${redirectParam}`;

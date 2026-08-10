@@ -475,7 +475,8 @@ app.get('/api/auth/google', (req, res) => {
   if (!GOOGLE_CLIENT_ID)
     return res.status(500).json({ error: 'Google OAuth is not configured' });
 
-  const appRedirect = req.query.redirect || '/';
+  // Default to the app, not the hub landing page
+  const appRedirect = req.query.redirect || '/apps/homeworkhelper';
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
