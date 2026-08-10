@@ -25,6 +25,8 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true); // true until initial /me check completes
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
 
   /**
    * Fetch current user from server (reads access_token cookie).
@@ -35,11 +37,17 @@ export function AuthProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user || data);
+        // Check onboarding status from user preferences
+        if (data.user?.preferences?.onboarding_complete) {
+          setOnboardingComplete(true);
+        }
       } else {
         setUser(null);
       }
     } catch {
       setUser(null);
+    } finally {
+      setOnboardingLoading(false);
     }
   }, []);
 
@@ -49,6 +57,30 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     fetchUser().finally(() => setLoading(false));
   }, [fetchUser]);
+
+  /**
+   * Mark onboarding as complete on the server.
+   */
+  const completeOnboarding = useCallback(async () => {
+    try {
+      const res = await fetch('/api/user/preferences', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboarding_complete: true }),
+      });
+      if (res.ok) {
+        setOnboardingComplete(true);
+        return true;
+      }
+    } catch {
+      // Fallback to localStorage if server fails
+      localStorage.setItem('hh_onboarding_complete', 'true');
+      setOnboardingComplete(true);
+      return true;
+    }
+    return false;
+  }, []);
 
   /**
    * Login with email/password.
@@ -91,17 +123,6 @@ export function AuthProvider({ children }) {
 
   /**
    * Sign in with Google via full-page redirect (no popup).
-   *
-   * Flow:
-   *  1. Save the current URL so we can return after auth
-   *  2. Redirect the main window to /api/auth/google?redirect=<current-url>
-   *  3. User goes through Google's OAuth flow on accounts.google.com
-   *  4. Google redirects to /api/auth/google/callback (sets cookies)
-   *  5. Callback redirects to the frontend with the saved return URL
-   *  6. Frontend loads, AuthProvider fetches /me, finds user — done
-   *
-   * This is much more reliable than popup-based OAuth on mobile,
-   * where popups often freeze or Chrome kills them.
    */
   const loginWithGoogle = useCallback(async () => {
     // Save current path so the callback can redirect back here
@@ -125,6 +146,7 @@ export function AuthProvider({ children }) {
       credentials: 'include',
     }).catch(() => {}); // fire-and-forget — clear state regardless
     setUser(null);
+    setOnboardingComplete(false);
   }, []);
 
   /**
@@ -143,8 +165,27 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Also check localStorage on mount for onboarding status (for faster perceived loading)
+  useEffect(() => {
+    const local = localStorage.getItem('hh_onboarding_complete');
+    if (local === 'true') {
+      setOnboardingComplete(true);
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, loginWithGoogle, logout, refresh }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      onboardingComplete, 
+      onboardingLoading,
+      completeOnboarding,
+      login, 
+      register, 
+      loginWithGoogle, 
+      logout, 
+      refresh 
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -4,12 +4,12 @@ import { useBilling } from '../contexts/BillingContext';
 
 /**
  * AccountSettings — slide-out panel for account management.
- *
+ * 
  * Sections:
  *  - Billing (subscription status + manage portal)
  *  - Change Password (current + new)
  *  - Unlink Google (if linked)
- *  - Danger Zone (delete account — placeholder, requires backend endpoint)
+ *  - Danger Zone (delete account)
  */
 
 function ChangePasswordForm({ onClose }) {
@@ -82,6 +82,105 @@ function ChangePasswordForm({ onClose }) {
       <button type="submit" disabled={busy}
         className="w-full py-2 px-4 rounded-lg font-medium text-sm bg-primary-500 text-white hover:bg-primary-600 transition-colors disabled:opacity-50">
         {busy ? 'Changing...' : 'Change Password'}
+      </button>
+    </form>
+  );
+}
+
+function DeleteAccountForm({ onClose }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    if (!password) { setError('Password is required'); return; }
+    if (confirmText !== 'DELETE') { setError('Please type "DELETE" to confirm'); return; }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/user/account', {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSuccess(true);
+        setTimeout(() => {
+          onClose();
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        setError(data.error || 'Failed to delete account');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally { setBusy(false); }
+  };
+
+  if (success) {
+    return (
+      <div className="text-center py-4">
+        <svg className="w-10 h-10 mx-auto text-warm-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p className="text-warm-700 dark:text-warm-300 text-sm font-medium">Account deleted</p>
+        <p className="text-xs text-primary-400 dark:text-primary-500 mt-1">Redirecting to homepage...</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      {error && (
+        <div className="p-2 rounded-lg bg-warm-50 dark:bg-warm-900/30 border border-warm-200 dark:border-warm-800 text-warm-700 dark:text-warm-300 text-xs flex items-start gap-1.5">
+          <svg className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
+      <p className="text-xs text-primary-500 dark:text-primary-400">
+        This will permanently delete your account and all data including:
+      </p>
+      <ul className="text-xs text-primary-400 dark:text-primary-500 list-disc list-inside space-y-1 ml-2">
+        <li>All grading sessions and results</li>
+        <li>Subscription and billing history</li>
+        <li>Google Classroom connections and sync data</li>
+        <li>Custom subjects and preferences</li>
+      </ul>
+      <p className="text-xs text-warm-600 dark:text-warm-400 font-medium">
+        This action cannot be undone.
+      </p>
+      <div>
+        <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Type "DELETE" to confirm</label>
+        <input
+          type="text"
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          className="w-full px-3 py-2 border border-primary-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white dark:bg-slate-700 text-primary-900 dark:text-primary-100 text-sm transition-colors"
+          disabled={busy}
+          autoComplete="off"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full px-3 py-2 border border-primary-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white dark:bg-slate-700 text-primary-900 dark:text-primary-100 text-sm transition-colors"
+          disabled={busy}
+          autoComplete="current-password"
+        />
+      </div>
+      <button type="submit" disabled={busy}
+        className="w-full py-2 px-4 rounded-lg font-medium text-sm bg-warm-500 text-white hover:bg-warm-600 transition-colors disabled:opacity-50 border border-warm-600">
+        {busy ? 'Deleting...' : 'Delete My Account'}
       </button>
     </form>
   );
@@ -226,17 +325,10 @@ export default function AccountSettings({ onClose }) {
             <UnlinkGoogleButton />
           </div>
 
-          {/* Danger Zone — placeholder */}
+          {/* Danger Zone */}
           <div>
             <h3 className="text-sm font-semibold text-warm-700 dark:text-warm-400 mb-3">Danger Zone</h3>
-            <p className="text-xs text-primary-500 dark:text-primary-400 mb-2">
-              Delete your account and all data. This cannot be undone.
-            </p>
-            <button disabled
-              className="text-sm py-2 px-4 rounded-lg border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 bg-white dark:bg-slate-800 opacity-50 cursor-not-allowed">
-              Delete Account (coming soon)
-            </button>
-            <p className="text-xs text-primary-400 dark:text-primary-500 mt-1">Account deletion will be available once subscription management is added.</p>
+            <DeleteAccountForm onClose={onClose} />
           </div>
         </div>
 
