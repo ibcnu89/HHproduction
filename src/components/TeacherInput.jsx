@@ -3,17 +3,18 @@ import React from 'react'
 const SUBJECTS = ['Math', 'Reading', 'Writing', 'Science', 'Other']
 
 export default function TeacherInput({
-  image,
-  imagePreview,
+  images,
+  imagePreviews,
   rubric,
   gradeLevel,
   subject,
   isLoading,
   onImageChange,
+  onRemoveImage,
+  onMoveImage,
   onRubricChange,
   onSubjectChange,
   onGradeClick,
-  onRemoveImage,
   onOpenSettings,
   useCustomRubric,
   setUseCustomRubric,
@@ -25,7 +26,12 @@ export default function TeacherInput({
   onSaveRubric,
   onSelectSavedRubric,
   onClearCustomRubric,
-  isExtractingRubric
+  isExtractingRubric,
+  newRubricName,
+  setNewRubricName,
+  showSaveRubricPrompt,
+  setShowSaveRubricPrompt,
+  extractedCustomRubric
 }) {
   const fileInputRef = React.useRef(null)
   const customRubricFileInputRef = React.useRef(null)
@@ -49,14 +55,16 @@ export default function TeacherInput({
     e.stopPropagation()
     if (isCustom) customDragActive.current = false
     else dragActive.current = false
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0]
-      if (file.type.startsWith('image/')) {
-        if (isCustom) {
-          onCustomRubricImageChange({ target: { files: [file] } })
-        } else {
-          onImageChange({ target: { files: [file] } })
-        }
+    if (e.dataTransfer.files && e.dataTransfer.files.length) {
+      const files = Array.from(e.dataTransfer.files)
+      if (isCustom) {
+        // Custom rubric single image only - use first image
+        const file = files.find((f) => f.type.startsWith('image/'))
+        if (file) onCustomRubricImageChange({ target: { files: [file] } })
+      } else {
+        // Multiple pages - pass all files
+        const imageFiles = files.filter((f) => f.type.startsWith('image/'))
+        if (imageFiles.length) onImageChange({ target: { files: imageFiles } })
       }
     }
   }
@@ -64,7 +72,7 @@ export default function TeacherInput({
   const handleClickUpload = () => fileInputRef.current?.click()
   const handleCustomClickUpload = () => customRubricFileInputRef.current?.click()
 
-  const isReady = image && (!useCustomRubric || customRubricImage || extractedCustomRubric)
+  const isReady = images.length > 0 && (!useCustomRubric || customRubricImage || extractedCustomRubric)
 
   // Format grade level for display
   const formatGradeLevel = (level) => {
@@ -94,15 +102,17 @@ export default function TeacherInput({
         </button>
       </div>
 
-      {/* Homework Image Upload Dropzone */}
+      {/* Homework Image Upload Dropzone (supports multiple pages) */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-2">Homework Image</label>
+        <label className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-2">
+          Homework Images {images.length > 0 && <span className="text-primary-400 dark:text-primary-500">({images.length} {images.length === 1 ? 'page' : 'pages'})</span>}
+        </label>
         <div
           ref={fileInputRef}
           className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
             dragActive.current
               ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20'
-              : image
+              : images.length > 0
               ? 'border-sage-300 bg-sage-50 dark:bg-sage-900/20'
               : 'border-primary-200 hover:border-primary-300 dark:border-slate-600 dark:hover:border-slate-500'
           }`}
@@ -116,28 +126,69 @@ export default function TeacherInput({
             type="file"
             ref={fileInputRef}
             accept="image/jpeg,image/png,image/webp"
+            multiple
             onChange={onImageChange}
             className="absolute inset-0 opacity-0 cursor-pointer"
             disabled={isLoading}
           />
 
-          {imagePreview ? (
-            <div className="relative max-w-full mx-auto">
-              <img
-                src={imagePreview}
-                alt="Uploaded homework"
-                className="max-h-64 rounded-lg shadow-md mx-auto"
-              />
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onRemoveImage() }}
-                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 text-primary-600 dark:text-primary-400 flex items-center justify-center shadow-lg transition-colors"
-                aria-label="Remove image"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          {imagePreviews.length > 0 ? (
+            <div className="relative space-y-3">
+              {/* Page thumbnails in a grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {imagePreviews.map((preview, idx) => (
+                  <div key={idx} className="relative rounded-lg overflow-hidden group">
+                    <img
+                      src={preview}
+                      alt={`Homework page ${idx + 1}`}
+                      className={`w-full object-cover rounded-lg shadow-md ${idx === 0 ? 'sm:max-h-56' : 'max-h-40'}`}
+                    />
+                    {/* Page number badge */}
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary-600/90 text-white text-xs font-medium shadow">
+                      Page {idx + 1}
+                    </span>
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onRemoveImage(idx) }}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-red-500 hover:text-white text-primary-600 dark:text-primary-400 flex items-center justify-center shadow-lg transition-colors"
+                      aria-label={`Remove page ${idx + 1}`}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    {/* Reorder controls */}
+                    <div className="absolute bottom-2 right-2 flex gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onMoveImage(idx, idx - 1) }}
+                        disabled={idx === 0}
+                        className="w-6 h-6 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-primary-500 hover:text-white text-primary-600 dark:text-primary-400 flex items-center justify-center shadow transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label={`Move page ${idx + 1} up`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onMoveImage(idx, idx + 1) }}
+                        disabled={idx === imagePreviews.length - 1}
+                        className="w-6 h-6 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-primary-500 hover:text-white text-primary-600 dark:text-primary-400 flex items-center justify-center shadow transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label={`Move page ${idx + 1} down`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-primary-400 dark:text-primary-600">
+                Click to add more pages · Drag or click to browse · Reorder with arrows above
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -145,10 +196,10 @@ export default function TeacherInput({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
               <div>
-                <p className="text-primary-600 dark:text-primary-400 font-medium">Drag & drop an image here</p>
-                <p className="text-primary-400 dark:text-primary-500 text-sm">or click to browse</p>
+                <p className="text-primary-600 dark:text-primary-400 font-medium">Drag & drop homework pages here</p>
+                <p className="text-primary-400 dark:text-primary-500 text-sm">or click to browse (select multiple)</p>
               </div>
-              <p className="text-xs text-primary-300 dark:text-primary-600">JPG, PNG, WebP · Max 10MB</p>
+              <p className="text-xs text-primary-300 dark:text-primary-600">JPG, PNG, WebP · Max 10MB each · Upload one or more pages</p>
             </div>
           )}
         </div>
@@ -345,9 +396,9 @@ export default function TeacherInput({
             ? customRubricImage
               ? 'Click "Grade This Homework" to proceed'
               : 'Upload your answer key image to enable grading'
-            : image
+            : images.length > 0
             ? 'Ready — auto-grade from IBSE standards (or paste an answer key to override)'
-            : 'Upload an image to get started'}
+            : 'Upload homework pages to get started'}
         </p>
       )}
     </div>

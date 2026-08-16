@@ -88,9 +88,9 @@ function GradingApp() {
 
   useEffect(() => { savePreferences(); }, [savePreferences, stateCode, gradeLevel, subject]);
 
-  // Main state
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  // Main state - support multiple images for multi-page assignments
+  const [images, setImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [rubric, setRubric] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [gradingResult, setGradingResult] = useState(null);
@@ -115,7 +115,7 @@ function GradingApp() {
   }, []);
 
   const handleGradeClick = async () => {
-    if (!image) return;
+    if (images.length === 0) return;
     if (useCustomRubric && !customRubricImage && !extractedCustomRubric) return;
 
     setIsLoading(true);
@@ -123,8 +123,18 @@ function GradingApp() {
     setGradingResult(null);
 
     try {
-      // Extract handwriting from homework image
-      const extractedQuestions = await extractHandwriting(image, gradeLevel, subject, stateCode);
+      // Extract handwriting from all homework images (process each page)
+      let allExtractedQuestions = [];
+      for (let i = 0; i < images.length; i++) {
+        const extractedQuestions = await extractHandwriting(images[i], gradeLevel, subject, stateCode);
+        // Tag questions with page number for reference
+        const taggedQuestions = extractedQuestions.map((q) => ({
+          ...q,
+          page: i + 1,
+          question_number: `Page ${i + 1} - ${q.question_number}`
+        }));
+        allExtractedQuestions = [...allExtractedQuestions, ...taggedQuestions];
+      }
 
       let finalRubric = null;
 
@@ -141,8 +151,8 @@ function GradingApp() {
         finalRubric = rubric;
       }
 
-      // Grade the submission
-      const result = await gradeSubmission(extractedQuestions, finalRubric, gradeLevel, subject, stateCode);
+      // Grade the submission (all pages combined)
+      const result = await gradeSubmission(allExtractedQuestions, finalRubric, gradeLevel, subject, stateCode);
       setGradingResult(result);
     } catch (err) {
       // Handle auth expiry mid-session
@@ -157,13 +167,20 @@ function GradingApp() {
   };
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      setImage(file);
-      const reader = new FileReader();
-      reader.onload = (event) => setImagePreview(event.target.result);
-      reader.readAsDataURL(file);
-    }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Add new files to existing ones
+    files.forEach((file) => {
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setImages((prev) => [...prev, file]);
+          setImagePreviews((prev) => [...prev, event.target.result]);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
   };
 
   const handleCustomRubricImageChange = async (e) => {
@@ -178,9 +195,26 @@ function GradingApp() {
     }
   };
 
-  const removeImage = () => {
-    setImage(null);
-    setImagePreview(null);
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    setGradingResult(null);
+    setError(null);
+  };
+
+  const moveImage = (fromIndex, toIndex) => {
+    setImages((prev) => {
+      const newImages = [...prev];
+      const [removed] = newImages.splice(fromIndex, 1);
+      newImages.splice(toIndex, 0, removed);
+      return newImages;
+    });
+    setImagePreviews((prev) => {
+      const newPreviews = [...prev];
+      const [removed] = newPreviews.splice(fromIndex, 1);
+      newPreviews.splice(toIndex, 0, removed);
+      return newPreviews;
+    });
     setGradingResult(null);
     setError(null);
   };
@@ -239,8 +273,8 @@ function GradingApp() {
   const handleGradeAnother = () => {
     setGradingResult(null);
     setError(null);
-    setImage(null);
-    setImagePreview(null);
+    setImages([]);
+    setImagePreviews([]);
     setRubric('');
     setCustomRubricImage(null);
     setCustomRubricPreview(null);
@@ -298,17 +332,18 @@ function GradingApp() {
               {activeTab === 'single' && (
                 <>
                   <TeacherInput
-                    image={image}
-                    imagePreview={imagePreview}
+                    images={images}
+                    imagePreviews={imagePreviews}
                     rubric={rubric}
                     gradeLevel={gradeLevel}
                     subject={subject}
                     isLoading={isLoading}
                     onImageChange={handleImageChange}
+                    onRemoveImage={removeImage}
+                    onMoveImage={moveImage}
                     onRubricChange={handleRubricChange}
                     onSubjectChange={setSubject}
                     onGradeClick={handleGradeClick}
-                    onRemoveImage={removeImage}
                     onOpenSettings={openSettings}
                     useCustomRubric={useCustomRubric}
                     setUseCustomRubric={setUseCustomRubric}
