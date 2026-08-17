@@ -94,7 +94,7 @@ async function main() {
     const trialResult = await client.query(`
       SELECT 
         COUNT(*) FILTER (WHERE subscription_status = 'trialing') as active_trials,
-        COUNT(*) FILTER (WHERE subscription_status = 'active' AND trial_converted_at > NOW() - INTERVAL '30 days') as trial_conversions_30d
+        COUNT(*) FILTER (WHERE subscription_status = 'active' AND stripe_trial_end <= NOW()) as trial_conversions_30d
       FROM users
     `);
 

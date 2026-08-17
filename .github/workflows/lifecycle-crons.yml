@@ -1,0 +1,63 @@
+name: HHproduction User Lifecycle Cron Jobs
+
+on:
+  schedule:
+    # Welcome drip enrollment - daily 8 AM UTC
+    - cron: '0 8 * * *'
+    # Welcome drip sends + win-back - daily 9 AM UTC
+    - cron: '0 9 * * *'
+    # High-intent scoring - every 2 hours
+    - cron: '0 */2 * * *'
+    # Daily conversion report - noon UTC
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Job to run manually'
+        required: true
+        type: choice
+        options:
+          - welcome-drip-enroll
+          - welcome-drip-send
+          - high-intent-scorer
+          - winback-send
+          - daily-conversion-report
+
+jobs:
+  lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      DISCORD_OPS_WEBHOOK: ${{ secrets.DISCORD_OPS_WEBHOOK }}
+      ALLOWLIST_EMAIL: ${{ secrets.ALLOWLIST_EMAIL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install lifecycle deps
+        run: npm install pg resend --prefix scripts/ops/lifecycle
+      - name: Run selected lifecycle job
+        run: |
+          JOB="${{ github.event.inputs.job || github.event.schedule }}"
+          case "$JOB" in
+            "0 8 * * *"|"welcome-drip-enroll")
+              node scripts/ops/lifecycle/welcome-drip-enroll.js
+              ;;
+            "0 9 * * *"|"welcome-drip-send")
+              node scripts/ops/lifecycle/welcome-drip-send.js
+              node scripts/ops/lifecycle/winback-send.js
+              ;;
+            "0 */2 * * *"|"high-intent-scorer")
+              node scripts/ops/lifecycle/high-intent-scorer.js
+              ;;
+            "0 12 * * *"|"daily-conversion-report")
+              node scripts/ops/lifecycle/daily-conversion-report.js
+              ;;
+            *)
+              echo "Unknown job: $JOB"; exit 1
+              ;;
+          esac
+        shell: bash

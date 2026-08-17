@@ -84,7 +84,7 @@ export default async function handler(req, res) {
       success_url: `${process.env.APP_URL}/settings?billing=success`,
       cancel_url: `${process.env.APP_URL}/settings?billing=canceled`,
       metadata: { user_id: user.id },
-      allow_promotion_codes: false, // Not in scope per requirements
+      allow_promotion_codes: true, // Enable win-back promo codes (e.g. WELCOMEBACK30) 2026-08-17
     });
 
     return res.status(200).json({ url: session.url });

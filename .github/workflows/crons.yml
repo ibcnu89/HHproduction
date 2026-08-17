@@ -1,25 +1,29 @@
 name: HHproduction Cron Jobs
 
 on:
-  schedule:
-    # Daily health check - 6 AM UTC
-    - cron: '0 6 * * *'
-    # Stripe webhook verify - every 15 minutes
-    - cron: '*/15 * * * *'
-    # MRR snapshot - midnight UTC
-    - cron: '0 0 * * *'
-    # Send outreach batch - Mon-Fri 10 AM UTC
-    - cron: '0 10 * * 1-5'
-    # Trial expiry notify - 9 AM UTC daily
-    - cron: '0 9 * * *'
-    # Weekly content publish - Monday 9 AM UTC
-    - cron: '0 9 * * 1'
-    # Weekly SEO rank check - Wednesday 8 AM UTC
-    - cron: '0 8 * * 3'
-    # DB backup verify - Sunday 3 AM UTC
-    - cron: '0 3 * * 0'
-    # SSL cert check - 1st of month 12 PM UTC
-    - cron: '0 12 1 * *'
+  # SCHEDULE DISABLED 2026-08-17 to eliminate double-firing with cron-jobs.yml.
+  # Keep manual workflow_dispatch (job selection below) for on-demand runs.
+  # NOTE: weekly-seo-rank-check ran `node scripts/ops/seo-rank-check.js`, which
+  # does NOT exist on disk -> was already a no-op/failing job. Not re-hosted.
+  # schedule:
+  #   # Daily health check - 6 AM UTC
+  #   - cron: '0 6 * * *'
+  #   # Stripe webhook verify - every 15 minutes
+  #   - cron: '*/15 * * * *'
+  #   # MRR snapshot - midnight UTC
+  #   - cron: '0 0 * * *'
+  #   # Send outreach batch - Mon-Fri 10 AM UTC
+  #   - cron: '0 10 * * 1-5'
+  #   # Trial expiry notify - 9 AM UTC daily
+  #   - cron: '0 9 * * *'
+  #   # Weekly content publish - Monday 9 AM UTC
+  #   - cron: '0 9 * * 1'
+  #   # Weekly SEO rank check - Wednesday 8 AM UTC
+  #   - cron: '0 8 * * 3'
+  #   # DB backup verify - Sunday 3 AM UTC
+  #   - cron: '0 3 * * 0'
+  #   # SSL cert check - 1st of month 12 PM UTC
+  #   - cron: '0 12 1 * *'
 
   workflow_dispatch:
     inputs:

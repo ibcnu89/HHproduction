@@ -72,7 +72,9 @@ const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
 const _cookieDomainUnused = COOKIE_DOMAIN;
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const REDIRECT_URI = `${FRONTEND_URL}/api/auth/google/callback`;
+// Allow explicit redirect URI override for Google Cloud Console exact match
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${FRONTEND_URL}/api/auth/google/callback`;
+const REDIRECT_URI = GOOGLE_REDIRECT_URI;
 
 function createResetToken(userId, email) {
   const secret = process.env.JWT_SECRET;
@@ -338,6 +340,9 @@ function buildAnswerKeyRubricInstructions() {
 import helmet from 'helmet';
 
 const app = express();
+
+// Trust Railway's proxy (required for secure cookies behind proxy)
+app.set('trust proxy', 1);
 
 // ── Security headers (helmet) ────────────────────────────────────────
 app.use(helmet({
@@ -1411,7 +1416,7 @@ app.post('/api/billing/create-checkout-session', async (req, res) => {
       success_url: `${process.env.APP_URL}/settings?billing=success`,
       cancel_url: `${process.env.APP_URL}/settings?billing=canceled`,
       metadata: { user_id: user.id },
-      allow_promotion_codes: false,
+      allow_promotion_codes: true,
     });
 
     return res.status(200).json({ url: session.url });
@@ -1503,7 +1508,7 @@ app.post('/api/billing/create-checkout-session', async (req, res) => {
       success_url: `${process.env.APP_URL}/settings?billing=success&plan=${isAnnual ? 'annual' : 'monthly'}`,
       cancel_url: `${process.env.APP_URL}/settings?billing=canceled`,
       metadata: { user_id: user.id, plan_type: isAnnual ? 'annual' : 'monthly' },
-      allow_promotion_codes: false,
+      allow_promotion_codes: true,
       subscription_data: {
         metadata: { user_id: user.id, plan_type: isAnnual ? 'annual' : 'monthly' },
       },
