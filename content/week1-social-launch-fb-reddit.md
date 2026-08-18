@@ -219,6 +219,29 @@ If you're reading this and it sounds like you: https://letsmakeai.fun — free 7
 
 ---
 
+## UTM Links (use THESE in your posts)
+
+UTM source-tracking is now live (migrations/016 + frontend cookie capture + server
+persistence). Every trial link below records which channel/date converted. The
+daily conversion report emails you "new signups by channel" each morning.
+
+**Base app link:** `https://letsmakeai.fun/apps/homeworkhelper`
+
+| Post | URL to paste |
+|------|--------------|
+| FB Day 1 (founder) | `https://letsmakeai.fun/apps/homeworkhelper?utm_source=facebook&utm_medium=social&utm_campaign=fb-week1-day1` |
+| FB Day 2 (rubrics) | `https://letsmakeai.fun/apps/homeworkhelper?utm_source=facebook&utm_medium=social&utm_campaign=fb-week1-day2-rubrics` |
+| FB Day 3 (batch) | `https://letsmakeai.fun/apps/homeworkhelper?utm_source=facebook&utm_medium=social&utm_campaign=fb-week1-day3-batch` |
+| Reddit Day 1 (roast) | `https://letsmakeai.fun/apps/homeworkhelper?utm_source=reddit&utm_medium=social&utm_campaign=rdit-week1-day1` |
+| Reddit Day 3 (edtech) | `https://letsmakeai.fun/apps/homeworkhelper?utm_source=reddit&utm_medium=social&utm_campaign=rdit-week1-day3-edtech` |
+
+Tip: for the implicit default channel (no utm), signups attribute to `direct`.
+Post URLs on Facebook as the link in a comment under the text post (groups throttle
+link-shaped posts). Use a new `utm_campaign` value for any future post so the report
+stays granular.
+
+---
+
 ## Posting Guidance
 
 ### Facebook groups (the real unlock)

@@ -32,6 +32,7 @@ import {
   clearAuthCookies,
 } from './lib/cookies.js';
 import { requireAuth } from './lib/auth.js';
+import { readUtmFromRequest } from './lib/utm.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -672,11 +673,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
             avatar_url: avatarUrl,
           };
         } else {
+          const { utm_source, utm_medium, utm_campaign } = readUtmFromRequest(req);
           const result = await client.query(
-            `INSERT INTO users (email, google_id, name, avatar_url, email_verified)
-             VALUES ($1, $2, $3, $4, TRUE)
+            `INSERT INTO users (email, google_id, name, avatar_url, email_verified, utm_source, utm_medium, utm_campaign)
+             VALUES ($1, $2, $3, $4, TRUE, $5, $6, $7)
              RETURNING id, email, name, avatar_url`,
-            [email, googleId, name, avatarUrl]
+            [email, googleId, name, avatarUrl, utm_source || null, utm_medium || null, utm_campaign || null]
           );
           user = result.rows[0];
         }
@@ -877,11 +879,12 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const passwordHash = await hashPassword(password);
+    const { utm_source, utm_medium, utm_campaign } = readUtmFromRequest(req);
     const result = await client.query(
-      `INSERT INTO users (email, password_hash, name, email_verified)
-       VALUES ($1, $2, $3, FALSE)
+      `INSERT INTO users (email, password_hash, name, email_verified, utm_source, utm_medium, utm_campaign)
+       VALUES ($1, $2, $3, FALSE, $4, $5, $6)
        RETURNING id, email, name, avatar_url, created_at`,
-      [emailTrimmed, passwordHash, name?.trim() || null]
+      [emailTrimmed, passwordHash, name?.trim() || null, utm_source || null, utm_medium || null, utm_campaign || null]
     );
     const user = result.rows[0];
 

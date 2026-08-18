@@ -5,6 +5,11 @@ import * as Sentry from '@sentry/react'
 import { browserTracingIntegration, replayIntegration } from '@sentry/react'
 import App from './App'
 import './index.css'
+import { captureUtmOnce } from './lib/utmCapture'
+
+// Capture marketing UTM params (if any) into the hh_utm cookie before anything
+// renders, so the server can attribute signups to the referring channel.
+captureUtmOnce();
 
 // Initialize Sentry
 function isValidSentryDsn(dsn) {

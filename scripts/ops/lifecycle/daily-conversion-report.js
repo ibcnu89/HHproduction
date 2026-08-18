@@ -45,12 +45,30 @@ async function main() {
     const { trials_closed = 0, converted = 0 } = res.rows[0] || {};
     const rate = trials_closed > 0 ? ((converted / trials_closed) * 100).toFixed(1) + '%' : 'n/a';
 
-    console.log(`[daily-conversion-report] ${targetDate}: ${converted}/${trials_closed} = ${rate}`);
+    // NEW: new signups on the target date, broken down by attribution source
+    // (set from ?utm_source=... cookie at registration). Lets you see which
+    // channel (facebook, reddit, direct, ...) actually produces signups.
+    const src = await client.query(`
+      SELECT COALESCE(NULLIF(utm_source,''),'direct') AS channel, COUNT(*) AS n
+      FROM users
+      WHERE created_at::date = $1::date
+      GROUP BY 1 ORDER BY 2 DESC
+    `, [targetDate]);
+    const channelRows = src.rows || [];
+    const totalNew = channelRows.reduce((a, r) => a + Number(r.n), 0);
+
+    console.log(`[daily-conversion-report] ${targetDate}: ${converted}/${trials_closed} = ${rate} | new signups: ${totalNew} (${JSON.stringify(channelRows)})`);
+
+    const channelHtml = channelRows.length
+      ? `<p style="margin-top:12px"><b>New signups by channel (${totalNew} total):</b></p>
+         <ul>${channelRows.map(r => `<li><b>${r.channel}</b>: ${r.n}</li>`).join('')}</ul>`
+      : `<p style="margin-top:12px;color:#888">No new signups on ${targetDate}.</p>`;
 
     const body = wrapH1(
       `<p>Trial → paid conversion for <b>${targetDate}</b>:</p>
        <h2 style="font-size:28px;margin:8px 0">${rate}</h2>
        <p>${converted} converted · ${trials_closed} trials closed (7-day windows ending on/before that day)</p>
+       ${channelHtml}
        <p>Full dashboard: <a href="https://letsmakeai.fun/settings">letsmakeai.fun</a></p>`
     );
 
