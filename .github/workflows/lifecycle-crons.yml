@@ -10,6 +10,8 @@ on:
     - cron: '0 */2 * * *'
     # Daily conversion report - noon UTC
     - cron: '0 12 * * *'
+    # Signup watcher - every 15 minutes (real-time channel alerts)
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       job:
@@ -22,6 +24,7 @@ on:
           - high-intent-scorer
           - winback-send
           - daily-conversion-report
+          - signup-watcher
 
 jobs:
   lifecycle:
@@ -55,6 +58,9 @@ jobs:
               ;;
             "0 12 * * *"|"daily-conversion-report")
               node scripts/ops/lifecycle/daily-conversion-report.js
+              ;;
+            "*/15 * * * *"|"signup-watcher")
+              node scripts/ops/lifecycle/signup-watcher.js
               ;;
             *)
               echo "Unknown job: $JOB"; exit 1
