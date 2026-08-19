@@ -16,4 +16,4 @@ COPY scripts/ops/resend-webhook-server.js ./resend-webhook-server.js
 EXPOSE 3001
 
 # Start server
-CMD ["node", "resend-webhook-server.js"]# force rebuild Wed Aug 19 12:35:13 AM CDT 2026
+CMD ["node", "resend-webhook-server.js"]
