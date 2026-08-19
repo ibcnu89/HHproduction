@@ -1,6 +1,6 @@
 # Week 1 Social Launch — Facebook Teacher Groups + Reddit
 **Channel focus:** Facebook teacher groups (primary, your best conversion channel) + Reddit (value-first).
-**Voice:** Skyler, founder + teacher's spouse. Warm, honest, teacher-first, zero hard-sell.
+**Voice:** Skyler, founder + teacher's son. Warm, honest, teacher-first, zero hard-sell.
 **Truth rule:** NO fabricated metrics. If the calendar says "47 teachers in trial" that's false today — we use real numbers or reframe. Free 7-day trial = real.
 
 **App URL for CTAs:** https://letsmakeai.fun
@@ -14,13 +14,13 @@
 *Plain text post — best performing format in teacher groups. No link in first sentence.*
 
 ```
-I watched my wife grade 120 essays every single Sunday for 8 years.
+I watched my mother grade 120 essays every single Sunday for 20 years.
 
-Not exaggerating. 8 years of our weekends disappearing into a grading pile.
+Not exaggerating. Two decades of our weekends disappearing into a grading pile.
 
 Last week she graded a full class set in her prep period. 40 minutes.
 
-I'm Skyler. I'm not a teacher — I'm the spouse who got tired of watching it eat her weekends. So I built HomeworkHelper: snap a photo of student work, it grades it in ~30 seconds, aligned to your state standards, with feedback students can actually learn from.
+I'm Skyler. I'm not a teacher — I'm the son who got tired of watching it eat her weekends. So I built HomeworkHelper: snap a photo of student work, it grades it in ~30 seconds, aligned to your state standards, with feedback students can actually learn from.
 
 Free 7-day trial, card required but cancel anytime. If it doesn't save you time in week 1, that's on me.
 
@@ -32,7 +32,7 @@ Drop a comment or DM if you want to try it — I'll send the link. Happy to answ
 Title: I built an AI grader for HANDWRITTEN homework — not typed, handwritten. Teachers, roast it.
 
 Body:
-My wife grades 120 essays every Sunday. I built HomeworkHelper because watching that for 8 years was brutal.
+My mother grades 120 essays every Sunday. I built HomeworkHelper because watching that for 20 years was brutal.
 
 What it does: snap a photo of a student's paper → it reads the handwriting (Gemini 2.5 Flash, handles messy 7th grade print), grades each question, maps it to your state's standards, and gives feedback — not just "-2".
 
@@ -136,7 +136,7 @@ That's the whole thesis. Free 7-day trial: https://letsmakeai.fun
 ```
 Does anyone actually get their whole grading done during the workday, or is Sunday the universal grading day?
 
-Genuinely curious. My wife is a teacher and Sunday was grading day every week. I built a tool to change that for her, but I want to know the real norm before I make it better.
+Genuinely curious. My mother is a teacher and Sunday was grading day every week. I built a tool to change that for her, but I want to know the real norm before I make it better.
 ```
 
 ---
