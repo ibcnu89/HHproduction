@@ -1,4 +1,4 @@
-# Docker ignore for webhook service - allow package-webhook.json and lock to be copied
+# Docker ignore for webhook service
 node_modules
 .git
 *.log
@@ -13,6 +13,8 @@ scripts
 tests
 package.json
 package-sequence.json
+package-webhook.json
+package-lock.json
 migrations
 docs
 *.json
@@ -21,3 +23,4 @@ docs
 !scripts/ops/resend-webhook-server.js
 !Dockerfile.webhook
 !Dockerfile
+!webhook/

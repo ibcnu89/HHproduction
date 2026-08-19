@@ -4,13 +4,13 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Copy package files
-COPY webhook/package.json webhook/package-lock.json ./
+COPY package.json package-lock.json ./
 
 # Install dependencies
 RUN npm ci --production
 
 # Copy application code
-COPY webhook/resend-webhook-server.js ./
+COPY resend-webhook-server.js ./
 
 # Expose port
 EXPOSE 3001
