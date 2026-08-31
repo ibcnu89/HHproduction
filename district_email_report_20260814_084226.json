@@ -1,0 +1,910 @@
+{
+  "total_districts": 100,
+  "emails_found": 0,
+  "emails_verified": 0,
+  "emails_missing": 100,
+  "prospects_updated": 0,
+  "errors": 0,
+  "details": [
+    {
+      "district": "NC",
+      "state": "NC",
+      "schools": 50,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.nc.org"
+    },
+    {
+      "district": "HI",
+      "state": "HI",
+      "schools": 50,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.hi.org"
+    },
+    {
+      "district": "FL",
+      "state": "FL",
+      "schools": 50,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.fl.org"
+    },
+    {
+      "district": "NV",
+      "state": "NV",
+      "schools": 47,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "SC",
+      "state": "SC",
+      "schools": 38,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "CO",
+      "state": "CO",
+      "schools": 37,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.co.org"
+    },
+    {
+      "district": "WV",
+      "state": "WV",
+      "schools": 31,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.wv.org"
+    },
+    {
+      "district": "FL",
+      "state": "FL",
+      "schools": 30,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.fl.org"
+    },
+    {
+      "district": "ND",
+      "state": "ND",
+      "schools": 29,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.nd.net"
+    },
+    {
+      "district": "MD",
+      "state": "MD",
+      "schools": 28,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.md.net"
+    },
+    {
+      "district": "MO",
+      "state": "MO",
+      "schools": 28,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.mo.org"
+    },
+    {
+      "district": "UT",
+      "state": "UT",
+      "schools": 26,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "LA",
+      "state": "LA",
+      "schools": 26,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "AK",
+      "state": "AK",
+      "schools": 25,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "TX",
+      "state": "TX",
+      "schools": 24,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.tx.org"
+    },
+    {
+      "district": "VA",
+      "state": "VA",
+      "schools": 24,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.va.org"
+    },
+    {
+      "district": "DC",
+      "state": "DC",
+      "schools": 23,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.dc.net"
+    },
+    {
+      "district": "OR",
+      "state": "OR",
+      "schools": 22,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.or.org"
+    },
+    {
+      "district": "CA",
+      "state": "CA",
+      "schools": 21,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ca.org"
+    },
+    {
+      "district": "MD",
+      "state": "MD",
+      "schools": 20,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.md.net"
+    },
+    {
+      "district": "GA",
+      "state": "GA",
+      "schools": 20,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://ga.org"
+    },
+    {
+      "district": "GA",
+      "state": "GA",
+      "schools": 19,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://ga.org"
+    },
+    {
+      "district": "NM",
+      "state": "NM",
+      "schools": 19,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.nm.org"
+    },
+    {
+      "district": "NE",
+      "state": "NE",
+      "schools": 19,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "TN",
+      "state": "TN",
+      "schools": 18,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.tn.net"
+    },
+    {
+      "district": "TN",
+      "state": "TN",
+      "schools": 18,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.tn.net"
+    },
+    {
+      "district": "DE",
+      "state": "DE",
+      "schools": 18,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "TX",
+      "state": "TX",
+      "schools": 17,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.tx.org"
+    },
+    {
+      "district": "CA",
+      "state": "CA",
+      "schools": 16,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ca.org"
+    },
+    {
+      "district": "NM",
+      "state": "NM",
+      "schools": 16,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.nm.org"
+    },
+    {
+      "district": "AL",
+      "state": "AL",
+      "schools": 16,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "MI",
+      "state": "MI",
+      "schools": 14,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "WY",
+      "state": "WY",
+      "schools": 14,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "WY",
+      "state": "WY",
+      "schools": 14,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "MT",
+      "state": "MT",
+      "schools": 13,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.mt.net"
+    },
+    {
+      "district": "CA",
+      "state": "CA",
+      "schools": 13,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ca.org"
+    },
+    {
+      "district": "CA",
+      "state": "CA",
+      "schools": 13,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ca.org"
+    },
+    {
+      "district": "AL",
+      "state": "AL",
+      "schools": 13,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "CA",
+      "state": "CA",
+      "schools": 13,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ca.org"
+    },
+    {
+      "district": "NM",
+      "state": "NM",
+      "schools": 12,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.nm.org"
+    },
+    {
+      "district": "IA",
+      "state": "IA",
+      "schools": 12,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ia.net"
+    },
+    {
+      "district": "AL",
+      "state": "AL",
+      "schools": 12,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "WI",
+      "state": "WI",
+      "schools": 12,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "MI",
+      "state": "MI",
+      "schools": 11,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "MS",
+      "state": "MS",
+      "schools": 11,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://msisd.org"
+    },
+    {
+      "district": "ID",
+      "state": "ID",
+      "schools": 11,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.id.net"
+    },
+    {
+      "district": "VA",
+      "state": "VA",
+      "schools": 11,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.va.org"
+    },
+    {
+      "district": "AK",
+      "state": "AK",
+      "schools": 10,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "IN",
+      "state": "IN",
+      "schools": 10,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "WA",
+      "state": "WA",
+      "schools": 10,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.wa.org"
+    },
+    {
+      "district": "ME",
+      "state": "ME",
+      "schools": 10,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.me.org"
+    },
+    {
+      "district": "WA",
+      "state": "WA",
+      "schools": 10,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.wa.org"
+    },
+    {
+      "district": "WA",
+      "state": "WA",
+      "schools": 9,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.wa.org"
+    },
+    {
+      "district": "VT",
+      "state": "VT",
+      "schools": 9,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.vt.org"
+    },
+    {
+      "district": "WV",
+      "state": "WV",
+      "schools": 9,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.wv.org"
+    },
+    {
+      "district": "IL",
+      "state": "IL",
+      "schools": 9,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.il.net"
+    },
+    {
+      "district": "FL",
+      "state": "FL",
+      "schools": 9,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.fl.org"
+    },
+    {
+      "district": "KY",
+      "state": "KY",
+      "schools": 9,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ky.net"
+    },
+    {
+      "district": "IN",
+      "state": "IN",
+      "schools": 9,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "DC",
+      "state": "DC",
+      "schools": 8,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.dc.net"
+    },
+    {
+      "district": "ME",
+      "state": "ME",
+      "schools": 8,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.me.org"
+    },
+    {
+      "district": "IL",
+      "state": "IL",
+      "schools": 8,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.il.net"
+    },
+    {
+      "district": "KY",
+      "state": "KY",
+      "schools": 8,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ky.net"
+    },
+    {
+      "district": "AZ",
+      "state": "AZ",
+      "schools": 8,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://az.org"
+    },
+    {
+      "district": "TX",
+      "state": "TX",
+      "schools": 8,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.tx.org"
+    },
+    {
+      "district": "SC",
+      "state": "SC",
+      "schools": 8,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "IA",
+      "state": "IA",
+      "schools": 8,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ia.net"
+    },
+    {
+      "district": "WV",
+      "state": "WV",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.wv.org"
+    },
+    {
+      "district": "MT",
+      "state": "MT",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.mt.net"
+    },
+    {
+      "district": "MS",
+      "state": "MS",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://msisd.org"
+    },
+    {
+      "district": "AR",
+      "state": "AR",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "AR",
+      "state": "AR",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "DE",
+      "state": "DE",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "AR",
+      "state": "AR",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "LA",
+      "state": "LA",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "RI",
+      "state": "RI",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "WI",
+      "state": "WI",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "KY",
+      "state": "KY",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ky.net"
+    },
+    {
+      "district": "MN",
+      "state": "MN",
+      "schools": 7,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.mn.org"
+    },
+    {
+      "district": "MI",
+      "state": "MI",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "MO",
+      "state": "MO",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://mo.org"
+    },
+    {
+      "district": "KS",
+      "state": "KS",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ks.net"
+    },
+    {
+      "district": "NH",
+      "state": "NH",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.nh.net"
+    },
+    {
+      "district": "NJ",
+      "state": "NJ",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.nj.net"
+    },
+    {
+      "district": "AL",
+      "state": "AL",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "MS",
+      "state": "MS",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://msisd.org"
+    },
+    {
+      "district": "MS",
+      "state": "MS",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://msisd.org"
+    },
+    {
+      "district": "TX",
+      "state": "TX",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.tx.org"
+    },
+    {
+      "district": "RI",
+      "state": "RI",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "RI",
+      "state": "RI",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "NY",
+      "state": "NY",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ny.net"
+    },
+    {
+      "district": "IL",
+      "state": "IL",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.il.net"
+    },
+    {
+      "district": "KY",
+      "state": "KY",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ky.net"
+    },
+    {
+      "district": "MA",
+      "state": "MA",
+      "schools": 6,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ma.org"
+    },
+    {
+      "district": "ME",
+      "state": "ME",
+      "schools": 5,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.me.org"
+    },
+    {
+      "district": "VT",
+      "state": "VT",
+      "schools": 5,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.vt.org"
+    },
+    {
+      "district": "CT",
+      "state": "CT",
+      "schools": 5,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ct.org"
+    },
+    {
+      "district": "AR",
+      "state": "AR",
+      "schools": 5,
+      "email": "MISSING",
+      "verified": false,
+      "source": "",
+      "website": ""
+    },
+    {
+      "district": "NY",
+      "state": "NY",
+      "schools": 5,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.ny.net"
+    },
+    {
+      "district": "ME",
+      "state": "ME",
+      "schools": 5,
+      "email": "MISSING",
+      "verified": false,
+      "source": "website_found;",
+      "website": "https://www.me.org"
+    }
+  ]
+}

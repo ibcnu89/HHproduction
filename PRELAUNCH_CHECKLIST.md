@@ -26,7 +26,7 @@
 - [ ] `STRIPE_SECRET_KEY` - Live key
 - [ ] `STRIPE_WEBHOOK_SECRET` - From Stripe Dashboard
 - [ ] `STRIPE_PRICE_ID` - `price_1TtFrED2UVcHtOLDoTU4YZ2c` ($20/mo)
-- [ ] `RESEND_API_KEY` - `re_9hhJhrZ7_EEZrc1wXPYMFWRvCJu7zKVFM`
+- [ ] `RESEND_API_KEY` - `re_xxxxxxxxxxxxx` (get from Resend dashboard)
 - [ ] `DISCORD_OPS_WEBHOOK` - For ops alerts
 - [ ] `APP_URL` - `https://hhproduction-production.up.railway.app`
 

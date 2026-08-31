@@ -42,8 +42,6 @@ const TIERS = [
 
 const IMPACT_STATS = [
   { label: 'Server costs/month', value: '$180', icon: '🖥️' },
-  { label: 'Teachers served free', value: '2,400+', icon: '👩‍🏫' },
-  { label: 'Papers graded free', value: '180K+', icon: '📄' },
   { label: 'Team size', value: '2 developers', icon: '👥' },
 ];
 

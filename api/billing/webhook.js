@@ -3,8 +3,7 @@
  * Stripe webhook handler for subscription lifecycle events.
  * Requires raw body for signature verification.
  * 
- * On Vercel: configure vercel.json with "rawBody": true for this route,
- * or use the built-in request.text() method.
+ * On Railway: raw body is captured by the Express middleware in server.js
  */
 
 import Stripe from 'stripe';

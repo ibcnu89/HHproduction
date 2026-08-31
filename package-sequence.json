@@ -1,0 +1,13 @@
+{
+  "name": "sequence-runner",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "scripts/ops/run-sequences.js",
+  "scripts": {
+    "start": "node scripts/ops/run-sequences.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3",
+    "node-fetch": "^3.3.2"
+  }
+}

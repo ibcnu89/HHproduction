@@ -37,7 +37,8 @@ import jwt from 'jsonwebtoken';
 // ── Helpers ──────────────────────────────────────────────────────────
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const REDIRECT_URI = 'https://hhproduction.vercel.app/api/auth/google/callback';
+// Use GOOGLE_REDIRECT_URI from env (set in Railway) or derive from FRONTEND_URL
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${process.env.FRONTEND_URL}/api/auth/google/callback`;
 
 function createResetToken(userId, email) {
   const secret = process.env.JWT_SECRET;

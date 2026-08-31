@@ -7,7 +7,7 @@ import http from 'http';
 import https from 'https';
 import { createHmac } from 'crypto';
 
-const WEBHOOK_SECRET = 'whsec_oQX86kHTXeGtuDO0G0KwxR4xDmwYuQnx';
+const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_xxxxxxxxxxxxx';
 const ENDPOINT = 'https://hhproduction-production.up.railway.app/api/billing/webhook';
 
 const event = {

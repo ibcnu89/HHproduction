@@ -1,10 +1,10 @@
 import Stripe from 'stripe';
 import fetch from 'node-fetch';
 
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_yqyOwFedXevd4yzewJdjFSimvJ8VkADj';
+const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_xxxxxxxxxxxxx';
 const ENDPOINT = 'https://hhproduction-production.up.railway.app/api/billing/webhook';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_live_test', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_xxxxxxxxxxxxx', {
   apiVersion: '2024-12-18.acacia',
 });
 

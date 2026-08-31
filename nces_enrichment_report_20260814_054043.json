@@ -1,0 +1,384 @@
+{
+  "summary": {
+    "total": 2743,
+    "matched": 2742,
+    "updated": 2742,
+    "unmatched": 1,
+    "errors": 0
+  },
+  "detailed": {
+    "overall": {
+      "total": 2743,
+      "matched": 2742,
+      "unmatched": 1,
+      "not_processed": 0,
+      "with_website": 0,
+      "with_address": 2742,
+      "with_students": 2725,
+      "with_teachers": 2665
+    },
+    "by_state": [
+      {
+        "state": "OH",
+        "total": 98,
+        "matched": 98,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "CA",
+        "total": 97,
+        "matched": 97,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "FL",
+        "total": 94,
+        "matched": 94,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "IN",
+        "total": 93,
+        "matched": 93,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "NY",
+        "total": 91,
+        "matched": 91,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "MO",
+        "total": 85,
+        "matched": 85,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "IL",
+        "total": 85,
+        "matched": 85,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "WI",
+        "total": 84,
+        "matched": 84,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "IA",
+        "total": 84,
+        "matched": 84,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "TX",
+        "total": 74,
+        "matched": 74,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "VA",
+        "total": 50,
+        "matched": 50,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "SC",
+        "total": 50,
+        "matched": 50,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "CT",
+        "total": 50,
+        "matched": 50,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "HI",
+        "total": 50,
+        "matched": 50,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "WV",
+        "total": 50,
+        "matched": 50,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "PA",
+        "total": 50,
+        "matched": 50,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "NC",
+        "total": 50,
+        "matched": 50,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "GA",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "MD",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "AK",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "AL",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "MA",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "ME",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "VT",
+        "total": 49,
+        "matched": 48,
+        "unmatched": 1,
+        "with_website": 0
+      },
+      {
+        "state": "NJ",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "ID",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "TN",
+        "total": 49,
+        "matched": 49,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "WA",
+        "total": 48,
+        "matched": 48,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "NM",
+        "total": 48,
+        "matched": 48,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "MS",
+        "total": 48,
+        "matched": 48,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "AR",
+        "total": 48,
+        "matched": 48,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "RI",
+        "total": 48,
+        "matched": 48,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "LA",
+        "total": 48,
+        "matched": 48,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "MI",
+        "total": 48,
+        "matched": 48,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "DE",
+        "total": 48,
+        "matched": 48,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "UT",
+        "total": 47,
+        "matched": 47,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "OR",
+        "total": 47,
+        "matched": 47,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "AZ",
+        "total": 47,
+        "matched": 47,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "NV",
+        "total": 47,
+        "matched": 47,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "KY",
+        "total": 47,
+        "matched": 47,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "CO",
+        "total": 46,
+        "matched": 46,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "WY",
+        "total": 45,
+        "matched": 45,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "NH",
+        "total": 43,
+        "matched": 43,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "ND",
+        "total": 43,
+        "matched": 43,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "KS",
+        "total": 43,
+        "matched": 43,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "DC",
+        "total": 41,
+        "matched": 41,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "NE",
+        "total": 39,
+        "matched": 39,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "MT",
+        "total": 39,
+        "matched": 39,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "MN",
+        "total": 37,
+        "matched": 37,
+        "unmatched": 0,
+        "with_website": 0
+      },
+      {
+        "state": "SD",
+        "total": 23,
+        "matched": 23,
+        "unmatched": 0,
+        "with_website": 0
+      }
+    ],
+    "by_status": [
+      {
+        "status": "new",
+        "count": 2699
+      },
+      {
+        "status": "call_queued",
+        "count": 44
+      }
+    ]
+  },
+  "timestamp": "2026-08-14T05:40:43.701491"
+}

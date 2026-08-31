@@ -1,0 +1,712 @@
+{
+  "total": 100,
+  "domains_found": 0,
+  "emails_found": 0,
+  "emails_verified": 0,
+  "emails_invalid": 0,
+  "prospects_updated": 0,
+  "errors": 0,
+  "rate_limits": 0,
+  "details": [
+    {
+      "district": "State Sponsored Charter Schools",
+      "state": "NV",
+      "students": 43301,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Alpine District",
+      "state": "UT",
+      "students": 29331,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "ALACHUA",
+      "state": "FL",
+      "students": 27442,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Cumberland County Schools",
+      "state": "NC",
+      "students": 26664,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "HAYS CISD",
+      "state": "TX",
+      "students": 23680,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Hesperia Unified",
+      "state": "CA",
+      "students": 23470,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Aiken 01",
+      "state": "SC",
+      "students": 22257,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "BAY",
+      "state": "FL",
+      "students": 22075,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Hawaii Department of Education",
+      "state": "HI",
+      "students": 21898,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Berkeley County Schools",
+      "state": "WV",
+      "students": 19549,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "State Charter School Institute",
+      "state": "CO",
+      "students": 18157,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Anne Arundel County Public Schools",
+      "state": "MD",
+      "students": 18065,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Ohio Virtual Academy",
+      "state": "OH",
+      "students": 15339,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "BISMARCK 1",
+      "state": "ND",
+      "students": 14804,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Albemarle County Public Schools",
+      "state": "VA",
+      "students": 14149,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "RIO RANCHO",
+      "state": "NM",
+      "students": 14026,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Upland Unified",
+      "state": "CA",
+      "students": 13933,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Hoover City",
+      "state": "AL",
+      "students": 13632,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Apple Valley Unified",
+      "state": "CA",
+      "students": 13232,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Rocklin Unified",
+      "state": "CA",
+      "students": 12757,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Troup County",
+      "state": "GA",
+      "students": 12389,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Madison City",
+      "state": "AL",
+      "students": 12143,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Appoquinimink School District",
+      "state": "DE",
+      "students": 12040,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Hamblen County",
+      "state": "TN",
+      "students": 10867,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Dublin Unified",
+      "state": "CA",
+      "students": 10718,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Atlanta Public Schools",
+      "state": "GA",
+      "students": 10437,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Hillsboro SD 1J",
+      "state": "OR",
+      "students": 10351,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Pennsylvania Cyber CS",
+      "state": "PA",
+      "students": 10178,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "GRAND ISLAND PUBLIC SCHOOLS",
+      "state": "NE",
+      "students": 9983,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "District of Columbia Public Schools",
+      "state": "DC",
+      "students": 9869,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Acadia Parish",
+      "state": "LA",
+      "students": 9734,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "UPLIFT EDUCATION",
+      "state": "TX",
+      "students": 9680,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Anderson Community School Corp",
+      "state": "IN",
+      "students": 8731,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "DRIPPING SPRINGS ISD",
+      "state": "TX",
+      "students": 8712,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Wayne-Westland Community School District",
+      "state": "MI",
+      "students": 8389,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Ankeny Comm School District",
+      "state": "IA",
+      "students": 8314,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Allegany County Public Schools",
+      "state": "MD",
+      "students": 7595,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "MSD Southwest Allen County Schls",
+      "state": "IN",
+      "students": 7502,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "North Star Academy Charter School",
+      "state": "NJ",
+      "students": 6714,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "TEAM Academy Charter School",
+      "state": "NJ",
+      "students": 6406,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Alternative Education Academy",
+      "state": "OH",
+      "students": 6276,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "ALBUQUERQUE",
+      "state": "NM",
+      "students": 6145,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Anderson County",
+      "state": "TN",
+      "students": 5623,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Marshall County",
+      "state": "AL",
+      "students": 5464,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Indiana Connections Academy",
+      "state": "IN",
+      "students": 5376,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Enumclaw School District",
+      "state": "WA",
+      "students": 5353,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Essex Westford Educational Community Unified Union SD #51",
+      "state": "VT",
+      "students": 5233,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Ohio Connections Academy Inc",
+      "state": "OH",
+      "students": 5191,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Cape Henlopen School District",
+      "state": "DE",
+      "students": 5133,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Ames Comm School District",
+      "state": "IA",
+      "students": 5095,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "BAKER",
+      "state": "FL",
+      "students": 5014,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Accomack County Public Schools",
+      "state": "VA",
+      "students": 4979,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "ALAMOGORDO",
+      "state": "NM",
+      "students": 4978,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Albertville City",
+      "state": "AL",
+      "students": 4952,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Barren County",
+      "state": "KY",
+      "students": 4917,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Kelso School District",
+      "state": "WA",
+      "students": 4915,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Helena Elem",
+      "state": "MT",
+      "students": 4880,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Starkville Oktibbeha Consolidated School District",
+      "state": "MS",
+      "students": 4880,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Appleton Area School District",
+      "state": "WI",
+      "students": 4824,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Campbell County School District #1",
+      "state": "WY",
+      "students": 4761,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "American Preparatory Academy",
+      "state": "UT",
+      "students": 4455,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "IDEA PUBLIC SCHOOLS",
+      "state": "FL",
+      "students": 4150,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "LAKE PEND OREILLE SCHOOL DISTRICT",
+      "state": "ID",
+      "students": 4077,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Muhlenberg County",
+      "state": "KY",
+      "students": 4068,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Zachary Community School District",
+      "state": "LA",
+      "students": 4042,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Champlain Valley Unified Union School District #56",
+      "state": "VT",
+      "students": 4028,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Anderson County",
+      "state": "KY",
+      "students": 4022,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Albany County School District #1",
+      "state": "WY",
+      "students": 4019,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Bedford School District",
+      "state": "NH",
+      "students": 3970,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "School District of the Chathams",
+      "state": "NJ",
+      "students": 3920,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Appling County",
+      "state": "GA",
+      "students": 3868,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Cave Creek Unified District (4244)",
+      "state": "AZ",
+      "students": 3821,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "ALVARADO ISD",
+      "state": "TX",
+      "students": 3788,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Chester Community CS",
+      "state": "PA",
+      "students": 3782,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Lower Kuskokwim School District",
+      "state": "AK",
+      "students": 3755,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "North Shore SD 112",
+      "state": "IL",
+      "students": 3730,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Crestwood School District",
+      "state": "MI",
+      "students": 3672,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "North Chicago SD 187",
+      "state": "IL",
+      "students": 3637,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Barrington",
+      "state": "RI",
+      "students": 3602,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "SHERIDAN SCHOOL DISTRICT",
+      "state": "AR",
+      "students": 3588,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Bethel School District",
+      "state": "CT",
+      "students": 3527,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "BATESVILLE SCHOOL DISTRICT",
+      "state": "AR",
+      "students": 3513,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Avon School District",
+      "state": "CT",
+      "students": 3463,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Bangor Public Schools",
+      "state": "ME",
+      "students": 3436,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Battle Creek Public Schools",
+      "state": "MI",
+      "students": 3414,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Biddeford Public Schools",
+      "state": "ME",
+      "students": 3322,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Benjamin Franklin Charter School - Queen Creek (4355)",
+      "state": "AZ",
+      "students": 3321,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "SOUTH COUNTRY CENTRAL SCHOOL DISTRICT",
+      "state": "NY",
+      "students": 3306,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Auburn Public Schools",
+      "state": "ME",
+      "students": 3241,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Bardstown Independent",
+      "state": "KY",
+      "students": 3238,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Achievement First Rhode Island",
+      "state": "RI",
+      "students": 3200,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Newark Charter School",
+      "state": "DE",
+      "students": 3109,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Marquette Area Public Schools",
+      "state": "MI",
+      "students": 3082,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Ashland Independent",
+      "state": "KY",
+      "students": 3070,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Aberdeen School District",
+      "state": "WA",
+      "students": 3039,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Allen County",
+      "state": "KY",
+      "students": 3019,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Adair County",
+      "state": "KY",
+      "students": 3019,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "PINE BLUFF SCHOOL DISTRICT",
+      "state": "AR",
+      "students": 2974,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "PARAGOULD SCHOOL DISTRICT",
+      "state": "AR",
+      "students": 2974,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    },
+    {
+      "district": "Chisago Lakes School District",
+      "state": "MN",
+      "students": 2964,
+      "domain": "NOT_FOUND",
+      "email": "MISSING"
+    }
+  ]
+}

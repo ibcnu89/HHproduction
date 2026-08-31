@@ -17,8 +17,9 @@ import { setAccessTokenCookie, setRefreshTokenCookie } from '../../../lib/cookie
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = 'https://hhproduction.vercel.app/api/auth/google/callback';
-const FRONTEND_URL = 'https://hhproduction.vercel.app';
+// Use GOOGLE_REDIRECT_URI from env (set in Railway) or derive from FRONTEND_URL
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${process.env.FRONTEND_URL}/api/auth/google/callback`;
+const FRONTEND_URL = process.env.FRONTEND_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

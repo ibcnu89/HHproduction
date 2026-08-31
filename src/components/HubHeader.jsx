@@ -26,10 +26,9 @@ export default function HubHeader({ onOpenSettings, onOpenAccountSettings }) {
   };
 
   const navItems = [
-    { href: '/', label: 'Home' },
-    { href: '/products', label: 'Products' },
+    { href: '/apps/homeworkhelper', label: 'HomeworkHelper' },
+    { href: '/products', label: 'All Tools' },
     { href: '/feedback', label: 'Feedback' },
-    { href: '/donate', label: 'Support' },
     { href: '/changelog', label: 'Changelog' },
   ];
 
@@ -107,7 +106,7 @@ export default function HubHeader({ onOpenSettings, onOpenAccountSettings }) {
                       className="w-full px-4 py-2 text-left text-sm text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       Account Settings
@@ -136,7 +135,7 @@ export default function HubHeader({ onOpenSettings, onOpenAccountSettings }) {
                   href="/auth?mode=register"
                   className="px-4 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors shadow-sm shadow-primary-500/25"
                 >
-                  Get Started
+                  Try HomeworkHelper Free
                 </a>
               </div>
             )}
@@ -205,7 +204,7 @@ export default function HubHeader({ onOpenSettings, onOpenAccountSettings }) {
                     onClick={() => setMobileMenuOpen(false)}
                     className="px-3 py-2 text-center text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors shadow-sm shadow-primary-500/25"
                   >
-                    Get Started
+                    Try HomeworkHelper Free
                   </a>
                 </div>
               )}

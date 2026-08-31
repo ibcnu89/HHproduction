@@ -41,7 +41,7 @@
 
 | Target | URL |
 |--------|-----|
-| Production | https://hhproduction.vercel.app |
+| Production | https://letsmakeai.fun |
 
 All 6 phases of v1.1 are deployed and functional.
 
@@ -51,11 +51,11 @@ All 6 phases of v1.1 are deployed and functional.
 
 | Component | Details |
 |-----------|---------|
-| Database | Neon PostgreSQL (ep-late-fire-ai9hnesg, pooled URL) |
+| Database | Neon PostgreSQL (ep-floral-mud-ai8h2j62-pooler, pooled URL) |
 | Tables | `users`, `sessions` (verified via psql) |
-| Vercel Project | `hhproduction` (ibcnu89/HHproduction) |
-| Vercel Env Vars | DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, COOKIE_DOMAIN, GEMINI_API_KEY |
-| Cookie Domain | `.vercel.app` (covers preview + production) |
+| Hosting | Railway (HHproduction service, auto-deploys from main) |
+| Railway Env Vars | DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, FRONTEND_URL, COOKIE_DOMAIN, GEMINI_API_KEY, RESEND_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID, SENTRY_DSN, VITE_SENTRY_DSN, ENCRYPTION_KEY, DISCORD_OPS_WEBHOOK, ALLOWLIST_EMAIL |
+| Cookie Domain | `.letsmakeai.fun` (production custom domain) |
 | GitHub Repo | ibcnu89/HHproduction (origin/main) |
 
 ---
@@ -118,8 +118,8 @@ src/
 ## Build & Deploy Status
 
 - **Build:** `npm run build` passes (25 modules, 213ms)
-- **Deploy:** Vercel auto-deploys on push to main
-- **No new env vars needed** — all auth endpoints already configured
+- **Deploy:** Railway auto-deploys on push to main
+- **No new env vars needed** — all auth endpoints already configured in Railway
 
 ---
 

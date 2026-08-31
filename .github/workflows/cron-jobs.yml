@@ -28,6 +28,7 @@ on:
           - health-check
           - mrr-snapshot
           - stripe-webhook-verify
+          - resend-webhook-verify
           - send-outreach-batch
           - trial-expiry-notify
           - weekly-content-publish
@@ -87,6 +88,15 @@ jobs:
       - name: Verify webhook endpoint
         run: |
           curl -sf https://hhproduction-production.up.railway.app/api/billing/webhook/health || exit 1
+
+  # Resend Webhook Verify
+  resend-webhook-verify:
+    if: github.event.schedule == '*/15 * * * *' || github.event.inputs.job == 'resend-webhook-verify'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Resend webhook endpoint
+        run: |
+          curl -sf https://hhproduction-production.up.railway.app/api/webhooks/resend/health || exit 1
 
   # Daily Outreach Batch
   send-outreach-batch:
