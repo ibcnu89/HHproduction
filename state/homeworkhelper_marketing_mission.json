@@ -1,0 +1,99 @@
+{
+  "mission": "HomeworkHelper Pipeline Reactivation",
+  "started_at": "2026-09-01T00:20:00Z",
+  "last_checkpoint_at": "2026-09-01T05:45:00Z",
+  "current_phase": 5,
+  "current_phase_name": "PHASE 5: Email safety hardening (paused for human confirmation)",
+  "completed_phases": [0, 1, 2, 3, 4, 5],
+  "in_progress_phase": null,
+  "failed_tasks": [],
+  "retry_counts": {},
+  "blocked_tasks": [
+    {
+      "task": "Phase 6 canary",
+      "reason": "Awaiting user confirmation after accidental live-send during Phase 5 verification",
+      "detected_at": "2026-09-01T05:45:00Z",
+      "circuit_breaker": "email_sending",
+      "options": [
+        "a) Approve canary with MAX_SENDS_PER_RUN=10",
+        "b) Approve canary with different cap",
+        "c) Hold canary for further investigation",
+        "d) Adjust template before any more sends"
+      ]
+    }
+  ],
+  "circuit_breakers": {
+    "email_sending": "OPEN_MANUAL_CONFIRM",
+    "x_posting": "closed",
+    "blog_publishing": "closed",
+    "cron_reactivation": "closed"
+  },
+  "cron_actions_taken": {
+    "resumed": ["cc38021fe2ad"],
+    "left_paused": ["914beaeea4ea", "4c48b058f886", "7888abe8fe12", "e86fba0d1562", "c92ebc7470da", "a68fd9a0e34d"],
+    "ambiguous": []
+  },
+  "incidents": [
+    {
+      "id": "INC-2026-09-01-001",
+      "phase": 5,
+      "summary": "Accidental live-send during verification of outreach-send-v2.js",
+      "message_id": "0e696897-0767-4ffd-bb54-d286dcd494f9",
+      "recipient": "etoney@hoover.k12.al.us",
+      "template": "Candidate A (Sunday grading, again?)",
+      "render": "OK (validated 12/12 edge cases + 10/10 real prospects)",
+      "cause": "Script bug: referenced non-existent last_template column. DB UPDATE failed AFTER the API send succeeded. Plus Phase 2 stale key check failed to detect that user had updated the key mid-mission.",
+      "mitigation": "Manually updated prospect record (touch_count=1, last_contacted=NOW, status=contacted, incident note in notes column). Fixed script: removed last_template from UPDATE.",
+      "user_alignment": "Aligned with user direction 'we are going to start over new' (received via out-of-band msg, 2026-09-01 ~05:35)"
+    }
+  ],
+  "discovery": {
+    "outreach_prospects_with_valid_email": 140,
+    "outreach_prospects_status_new": 2564,
+    "outreach_prospects_status_contacted": 135,
+    "outreach_prospects_status_call_queued": 44,
+    "outreach_prospects_status_replied": 0,
+    "outreach_prospects_status_unsubscribed": 0,
+    "active_sequences": 104,
+    "completed_sequences": 0,
+    "sendable_list_size": 140,
+    "resend_api_key_valid": true,
+    "resend_api_key_updated_at": "2026-09-01T05:35:00Z (per user OOB msg: 'resend api updated in railway')"
+  },
+  "deliverables_created": [
+    "reports/homeworkhelper_pipeline_preflight.md",
+    "reports/cron_job_classification.md",
+    "reports/first_touch_template_review.md",
+    "reports/email_pipeline_reactivation.md",
+    "scripts/ops/outreach-send-v2.js",
+    "scripts/ops/render-harness.js",
+    "server.js (added /api/outreach/unsubscribe)"
+  ],
+  "next_operation": "PHASE 6: Canary run with MAX_SENDS_PER_RUN=10 (PENDING USER APPROVAL)",
+  "decisions": {
+    "reactive_cron_ids": ["a68fd9a0e34d", "cc38021fe2ad"],
+    "leave_paused_cron_ids": ["914beaeea4ea", "4c48b058f886", "7888abe8fe12", "e86fba0d1562", "c92ebc7470da"],
+    "ambiguous_cron_ids": [],
+    "x_account_handle": "ibcnu8989",
+    "x_account_verified": false,
+    "blog_destination": null,
+    "first_touch_template_winner": "candidate_A_problem_first",
+    "sendable_list_size": 140,
+    "fresh_start": true,
+    "cancel_stale_sequences": false,
+    "canary_cap_requested": 10
+  },
+  "safety_invariants": {
+    "no_email_send_before_phase_6_user_approval": true,
+    "no_template_replaced_before_phase_3": true,
+    "no_duplicate_sends": true,
+    "unsubscribe_link_required": true,
+    "per_run_send_cap": 10,
+    "unsubscribed_filter_required": true,
+    "bounced_filter_required": true,
+    "status_filter_required": true,
+    "circuit_breaker_429_backoff_required": true,
+    "render_leak_check_required": true,
+    "max_429_retries": 3
+  }
+}

@@ -771,6 +771,48 @@ app.get('/api/webhooks/resend/health', (req, res) => {
   res.json({ status: 'ok', service: 'resend-webhook', timestamp: new Date().toISOString() });
 });
 
+// ── Outreach Unsubscribe (cold-email compliance) ──────────────────────
+// One-click unsubscribe for outreach emails. Marks prospect as unsubscribed
+// so all future sequence steps (and the daily outreach batch) skip them.
+app.get('/api/outreach/unsubscribe', async (req, res) => {
+  try {
+    const token = (req.query.token || '').toString();
+    if (!token || !/^[0-9a-f-]{36}$/i.test(token)) {
+      return res.status(400).send('Invalid unsubscribe token');
+    }
+    const result = await pool.query(
+      `UPDATE outreach_prospects
+         SET status = 'unsubscribed',
+             updated_at = NOW()
+       WHERE id = $1
+       RETURNING email, school`,
+      [token]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).send('Prospect not found');
+    }
+    // Also mark any active sequences as cancelled so they stop sending
+    await pool.query(
+      `UPDATE outreach_sequences
+         SET status = 'cancelled',
+             last_activity_at = NOW()
+       WHERE prospect_id = $1 AND status = 'active'`,
+      [token]
+    );
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!doctype html><html><head><title>Unsubscribed</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>body{font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:80px auto;padding:24px;text-align:center;color:#1e293b}
+      .ok{font-size:48px;margin-bottom:16px}h1{font-size:24px;margin:0 0 8px}p{color:#64748b;line-height:1.5}a{color:#4a85ff;text-decoration:none}</style>
+      </head><body><div class="ok">✓</div><h1>You're unsubscribed</h1>
+      <p>You won't receive any more outreach emails from HomeworkHelper. (${result.rows[0].email})</p>
+      <p><a href="https://letsmakeai.fun">Return to letsmakeai.fun</a></p></body></html>`);
+  } catch (e) {
+    console.error('Unsubscribe error:', e.message);
+    res.status(500).send('Internal error');
+  }
+});
+
 
 // ── Body Parser ────────────────────────────────────────────────────────
 
