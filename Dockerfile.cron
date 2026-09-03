@@ -23,5 +23,5 @@ RUN apk add --no-cache postgresql-client gzip
 # Set environment
 ENV NODE_ENV=production
 
-# Default command - we'll override with specific cron commands
-CMD ["node", "scripts/ops/mrr-snapshot.js"]
+# Default command - run the Python cron worker
+CMD ["python3", "scripts/ops/cron_worker.py"]

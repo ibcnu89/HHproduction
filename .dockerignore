@@ -26,4 +26,5 @@ docs
 !dist/
 !vite.config.js
 !index.html
+!server.js
 !railway.toml
