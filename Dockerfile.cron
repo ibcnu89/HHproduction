@@ -3,6 +3,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# Install Python and dependencies for cron_worker.py
+RUN apk add --no-cache python3 py3-pip py3-schedule py3-psycopg2
+
 # Copy package files
 COPY package*.json ./
 
