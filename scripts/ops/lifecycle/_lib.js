@@ -10,7 +10,7 @@
 import pg from 'pg';
 import { Resend } from 'resend';
 
-export const FROM_EMAIL = 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>';
+export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>';
 export const ADMIN_EMAIL = process.env.ALLOWLIST_EMAIL || 'skyler@letsmakeai.fun';
 export const APP_URL = 'https://letsmakeai.fun';
 

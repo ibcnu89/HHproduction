@@ -76,6 +76,28 @@ CREATE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer
 CREATE INDEX IF NOT EXISTS idx_users_stripe_subscription_id ON users(stripe_subscription_id);
 CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status);
 
+-- Batch Grading Sessions Table
+CREATE TABLE IF NOT EXISTS batch_grading_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  grade_level VARCHAR(20) NOT NULL,
+  subject VARCHAR(50) NOT NULL,
+  rubric TEXT,
+  standards_text TEXT,
+  total_images INT NOT NULL DEFAULT 0,
+  processed_count INT NOT NULL DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending, processing, completed, failed
+  results JSONB DEFAULT '[]'::jsonb,
+  error TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_batch_sessions_user ON batch_grading_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_batch_sessions_status ON batch_grading_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_batch_sessions_created ON batch_grading_sessions(created_at DESC);
+
+
 -- ============================================================
 -- GOOGLE CLASSROOM INTEGRATION (append-only, never edit above)
 -- ============================================================
@@ -93,7 +115,7 @@ CREATE TABLE IF NOT EXISTS google_classroom_tokens (
   UNIQUE(user_id)
 );
 
-CREATE INDEX idx_gc_tokens_user ON google_classroom_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_gc_tokens_user ON google_classroom_tokens(user_id);
 
 -- Synced Classroom courses
 CREATE TABLE IF NOT EXISTS classroom_courses (
@@ -115,8 +137,8 @@ CREATE TABLE IF NOT EXISTS classroom_courses (
   UNIQUE(user_id, gc_course_id)
 );
 
-CREATE INDEX idx_gc_courses_user ON classroom_courses(user_id);
-CREATE INDEX idx_gc_courses_gcid ON classroom_courses(gc_course_id);
+CREATE INDEX IF NOT EXISTS idx_gc_courses_user ON classroom_courses(user_id);
+CREATE INDEX IF NOT EXISTS idx_gc_courses_gcid ON classroom_courses(gc_course_id);
 
 -- Synced Classroom assignments (courseWork)
 CREATE TABLE IF NOT EXISTS classroom_assignments (
@@ -138,8 +160,8 @@ CREATE TABLE IF NOT EXISTS classroom_assignments (
   UNIQUE(course_id, gc_coursework_id)
 );
 
-CREATE INDEX idx_gc_assignments_course ON classroom_assignments(course_id);
-CREATE INDEX idx_gc_assignments_gcid ON classroom_assignments(gc_coursework_id);
+CREATE INDEX IF NOT EXISTS idx_gc_assignments_course ON classroom_assignments(course_id);
+CREATE INDEX IF NOT EXISTS idx_gc_assignments_gcid ON classroom_assignments(gc_coursework_id);
 
 -- Student submissions from Classroom
 CREATE TABLE IF NOT EXISTS classroom_submissions (
@@ -160,9 +182,9 @@ CREATE TABLE IF NOT EXISTS classroom_submissions (
   UNIQUE(assignment_id, gc_submission_id)
 );
 
-CREATE INDEX idx_gc_submissions_assignment ON classroom_submissions(assignment_id);
-CREATE INDEX idx_gc_submissions_student ON classroom_submissions(gc_user_id);
-CREATE INDEX idx_gc_submissions_session ON classroom_submissions(grading_session_id);
+CREATE INDEX IF NOT EXISTS idx_gc_submissions_assignment ON classroom_submissions(assignment_id);
+CREATE INDEX IF NOT EXISTS idx_gc_submissions_student ON classroom_submissions(gc_user_id);
+CREATE INDEX IF NOT EXISTS idx_gc_submissions_session ON classroom_submissions(grading_session_id);
 
 -- Sync log for debugging/monitoring
 CREATE TABLE IF NOT EXISTS classroom_sync_log (
@@ -179,5 +201,5 @@ CREATE TABLE IF NOT EXISTS classroom_sync_log (
   completed_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_gc_sync_log_user ON classroom_sync_log(user_id);
-CREATE INDEX idx_gc_sync_log_type ON classroom_sync_log(sync_type);
+CREATE INDEX IF NOT EXISTS idx_gc_sync_log_user ON classroom_sync_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_gc_sync_log_type ON classroom_sync_log(sync_type);

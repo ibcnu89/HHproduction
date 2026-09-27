@@ -180,7 +180,7 @@ async function forwardReplyToEmails(prospect, reply, sentiment) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'HomeworkHelper Replies <replies@letsmakeai.fun>',
+          from: process.env.RESEND_FROM_EMAIL || 'HomeworkHelper Replies <replies@letsmakeai.fun>',
           to: email,
           subject,
           html,

@@ -33,6 +33,8 @@ import {
 } from './lib/cookies.js';
 import { requireAuth } from './lib/auth.js';
 import { readUtmFromRequest } from './lib/utm.js';
+import { requestPasswordReset, completePasswordReset } from './lib/password-reset.js';
+import { storeOAuthState, verifyAndConsumeOAuthState, createTempSessionId, getSessionIdFromRequest, setTempSessionCookie, getTempSessionCookie, clearTempSessionCookie } from './lib/oauth-state.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -41,6 +43,8 @@ import multer from 'multer';
 import { getClassroomAuthUrl, exchangeClassroomCode, storeClassroomTokens, revokeClassroomTokens, getClassroomConnectionStatus } from './lib/google-classroom.js';
 import { syncUserClassroom } from './lib/classroom-sync.js';
 import { pushGradeToClassroom } from './lib/classroom-grades.js';
+import { checkoutHandler, statusHandler, plansHandler, processBillingEvent, getStripe, billingStatus, requireSubscription } from './lib/billing.js';
+import { recordGeminiUsage, getUsageSummary } from './lib/ai-usage.js';
 
 // Configure multer for batch grading (memory storage for base64 conversion)
 const upload = multer({
@@ -64,8 +68,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Detect domain from Railway env or fall back
+// FRONTEND_URL must match the origin users actually browse. GOOGLE_REDIRECT_URI
+// is the fixed anchor registered in the Google Console (apex). Deriving the
+// public origin from it prevents a www/apex mismatch: RAILWAY_PUBLIC_DOMAIN
+// changed to www.letsmakeai.fun after the last deploy while Google, DNS and
+// users all use the apex — mixing them silently broke auth cookies in Chrome.
 const RAILWAY_PUBLIC_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_SERVICE_HHPRODUCTION_URL || 'localhost';
-const FRONTEND_URL = `https://${RAILWAY_PUBLIC_DOMAIN}`;
+const FRONTEND_URL =
+  (process.env.GOOGLE_REDIRECT_URI && new URL(process.env.GOOGLE_REDIRECT_URI).origin) ||
+  process.env.APP_URL ||
+  `https://${RAILWAY_PUBLIC_DOMAIN}`;
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
 
 // NOTE: COOKIE_DOMAIN is no longer used in cookie options (see lib/cookies.js).
@@ -77,15 +89,8 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${FRONTEND_URL}/api/auth/google/callback`;
 const REDIRECT_URI = GOOGLE_REDIRECT_URI;
 
-function createResetToken(userId, email) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('JWT_SECRET not configured');
-  return jwt.sign(
-    { sub: userId, email, purpose: 'password_reset' },
-    secret,
-    { expiresIn: '1h' }
-  );
-}
+// ── Password Reset Helpers (replaced by lib/password-reset.js) ────────────
+// Old createResetToken function removed - now using secure token store in lib/password-reset.js
 
 async function makeSession(client, userId, userAgent) {
   const r = await client.query(
@@ -106,7 +111,7 @@ async function storeRefreshHash(client, sessionId, refreshToken) {
 }
 
 function issueCookies(res, user, sessionId, rememberMe) {
-  const accessToken = createAccessToken(user);
+  const accessToken = createAccessToken(user, sessionId);
   const refreshToken = createRefreshToken(user.id, sessionId, !!rememberMe);
   setAccessTokenCookie(res, accessToken);
   setRefreshTokenCookie(res, refreshToken, !!rememberMe);
@@ -320,7 +325,7 @@ function getStrictnessGuidance(gradeLevel) {
 function buildAutoRubricInstructions(gradeLevel, subject, standardsText) {
   const standardSubjects = ['Math', 'Reading', 'Writing', 'Science', 'Other'];
   const isCustomSubject = !standardSubjects.includes(subject);
-  
+
   const standardsBlock = standardsText
     ? `\nSTANDARDS REFERENCE (use these as your rubric backbone — the auto-generated correct answers and point values MUST be defensible against these standards):\n${standardsText}\n`
     : `\nNo standards were loaded. Fall back to general ${subject} norms for grade ${gradeLevel}.\n`;
@@ -356,7 +361,7 @@ app.use(helmet({
 const rawBodyMiddleware = (req, res, next) => {
   const isStripeWebhook = (req.path === '/api/billing/webhook' || req.path === '/api/billing/webhook/debug') && req.method === 'POST';
   const isResendWebhook = req.path === '/api/webhooks/resend/reply' && req.method === 'POST';
-  
+
   if (isStripeWebhook || isResendWebhook) {
     const chunks = [];
     req.on('data', chunk => chunks.push(chunk));
@@ -400,7 +405,7 @@ app.post('/api/billing/webhook', async (req, res) => {
 
   const rawBody = req.rawBody;
   console.log('[Webhook Debug] Using rawBody for verification, length:', rawBody?.length);
-  
+
   let event;
   try {
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
@@ -412,36 +417,7 @@ app.post('/api/billing/webhook', async (req, res) => {
 
   const client = await getClient();
   try {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        await handleCheckoutCompleted(client, stripe, session);
-        break;
-      }
-
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object;
-        await handleSubscriptionUpdate(client, subscription);
-        break;
-      }
-
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object;
-        await handleSubscriptionDeleted(client, subscription);
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        console.log('Invoice payment failed:', invoice.id, 'for customer:', invoice.customer);
-        break;
-      }
-
-      default: {
-        console.log(`Unhandled webhook event type: ${event.type}`);
-      }
-    }
+    await processBillingEvent(event, getStripe(), client);
 
     return res.status(200).json({ received: true });
   } catch (error) {
@@ -471,12 +447,12 @@ const DISCORD_WEBHOOK = process.env.DISCORD_OPS_WEBHOOK;
 function verifyResendSignature(req, secret) {
   const signature = req.headers['resend-signature'];
   if (!signature) return false;
-  
+
   const expected = crypto
     .createHmac('sha256', secret)
     .update(req.rawBody)
     .digest('hex');
-  
+
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 }
 
@@ -485,16 +461,16 @@ function verifyResendSignature(req, secret) {
  */
 function analyzeSentiment(subject, body) {
   const text = `${subject || ''} ${body || ''}`.toLowerCase();
-  
+
   // Positive indicators
   const positiveKeywords = [
-    'interested', 'tell me more', 'let\'s talk', 'demo', 'schedule', 
+    'interested', 'tell me more', 'let\'s talk', 'demo', 'schedule',
     'meeting', 'call me', 'contact me', 'sounds good', 'great',
     'love this', 'excited', 'how much', 'pricing', 'trial',
     'sign up', 'get started', 'more info', 'details',
     'yes', 'please', 'would like', 'helpful', 'useful'
   ];
-  
+
   // Negative indicators
   const negativeKeywords = [
     'not interested', 'unsubscribe', 'remove', 'stop', 'spam',
@@ -502,18 +478,18 @@ function analyzeSentiment(subject, body) {
     'don\'t have time', 'already using', 'competitor',
     'no budget', 'not now', 'go away', 'leave me alone'
   ];
-  
+
   let positiveScore = 0;
   let negativeScore = 0;
-  
+
   for (const kw of positiveKeywords) {
     if (text.includes(kw)) positiveScore++;
   }
-  
+
   for (const kw of negativeKeywords) {
     if (text.includes(kw)) negativeScore++;
   }
-  
+
   if (positiveScore > negativeScore && positiveScore > 0) return 'positive';
   if (negativeScore > positiveScore && negativeScore > 0) return 'negative';
   if (positiveScore > 0 || negativeScore > 0) return 'neutral';
@@ -525,21 +501,21 @@ function analyzeSentiment(subject, body) {
  */
 async function sendDiscordAlert(prospect, reply, sentiment) {
   if (!DISCORD_WEBHOOK) return;
-  
+
   const colors = {
     positive: 0x22c55e,
     neutral: 0x3b82f6,
     negative: 0xf59e0b,
     unknown: 0x6b7280
   };
-  
+
   const emojis = {
     positive: '✅',
     neutral: 'ℹ️',
     negative: '⚠️',
     unknown: '❓'
   };
-  
+
   const embed = {
     title: `${emojis[sentiment]} New Reply: ${sentiment.toUpperCase()}`,
     description: `**From:** ${reply.from_email}\n**Subject:** ${reply.subject || '(no subject)'}\n**Sentiment:** ${sentiment}`,
@@ -550,7 +526,7 @@ async function sendDiscordAlert(prospect, reply, sentiment) {
       ],
     footer: { text: 'HomeworkHelper Outreach' }
   };
-  
+
   if (prospect) {
     embed.fields.unshift(
       { name: 'School', value: prospect.school, inline: true },
@@ -558,7 +534,7 @@ async function sendDiscordAlert(prospect, reply, sentiment) {
       { name: 'Grade', value: prospect.subject, inline: true }
     );
   }
-  
+
   try {
     await fetch(DISCORD_WEBHOOK, {
       method: 'POST',
@@ -578,14 +554,14 @@ async function forwardReplyToEmails(prospect, reply, sentiment) {
     'ibcnu89@gmail.com',
     // Add your monitoring email here
   ];
-  
+
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  
+
   if (!RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set, skipping email forward');
     return;
   }
-  
+
   const subject = `[${sentiment.toUpperCase()}] Reply: ${reply.subject || '(no subject)'}`;
   const html = `
     <div style="font-family: Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; color: #1a1a1a;">
@@ -606,7 +582,7 @@ async function forwardReplyToEmails(prospect, reply, sentiment) {
       <p style="color:#888;font-size:12px">HomeworkHelper Outreach Webhook</p>
     </div>
   `;
-  
+
   for (const email of forwardEmails) {
     try {
       await fetch('https://api.resend.com/emails', {
@@ -616,7 +592,7 @@ async function forwardReplyToEmails(prospect, reply, sentiment) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'HomeworkHelper Replies <replies@letsmakeai.fun>',
+          from: process.env.RESEND_FROM_EMAIL || 'HomeworkHelper Replies <replies@letsmakeai.fun>',
           to: email,
           subject,
           html,
@@ -637,7 +613,7 @@ async function createFollowup(prospectId, replyId) {
   try {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 1); // 1 day after reply
-    
+
     await client.query(`
       INSERT INTO outreach_followups (prospect_id, reply_id, due_date, status)
       VALUES ($1, $2, $3, 'pending')
@@ -658,12 +634,12 @@ app.post('/api/webhooks/resend/reply', async (req, res) => {
       console.error('RESEND_WEBHOOK_SECRET not configured');
       return res.status(500).json({ error: 'Webhook not configured' });
     }
-    
+
     if (!verifyResendSignature(req, RESEND_WEBHOOK_SECRET)) {
       console.warn('Invalid Resend webhook signature');
       return res.status(401).json({ error: 'Invalid signature' });
     }
-    
+
     // Parse payload
     let payload;
     try {
@@ -672,7 +648,7 @@ app.post('/api/webhooks/resend/reply', async (req, res) => {
       console.error('Invalid JSON:', e);
       return res.status(400).json({ error: 'Invalid JSON' });
     }
-    
+
     // Resend reply payload structure:
     // {
     //   "type": "email.received",
@@ -686,24 +662,24 @@ app.post('/api/webhooks/resend/reply', async (req, res) => {
     //     "created_at": "2024-01-15T10:30:00Z"
     //   }
     // }
-    
+
     if (payload.type !== 'email.received') {
       console.log('Ignoring non-reply event:', payload.type);
       return res.status(200).json({ received: true });
     }
-    
+
     const email = payload.data;
     const fromEmail = email.from?.toLowerCase().trim();
     const subject = email.subject || '';
     const body = email.text || email.html || '';
     const receivedAt = email.created_at ? new Date(email.created_at) : new Date();
     const messageId = email.message_id || null;
-    
+
     if (!fromEmail) {
       console.warn('Reply missing from address');
       return res.status(400).json({ error: 'Missing from address' });
     }
-    
+
     const client = await getClient();
     try {
       // Match to prospect by email
@@ -711,12 +687,12 @@ app.post('/api/webhooks/resend/reply', async (req, res) => {
         'SELECT id, school, state, subject FROM outreach_prospects WHERE LOWER(email) = $1',
         [fromEmail]
       );
-      
+
       const prospect = prospectResult.rows[0] || null;
-      
+
       // Analyze sentiment
       const sentiment = analyzeSentiment(subject, body);
-      
+
       // Store reply
       const replyResult = await client.query(`
         INSERT INTO outreach_replies (
@@ -733,33 +709,33 @@ app.post('/api/webhooks/resend/reply', async (req, res) => {
         sentiment,
         messageId
       ]);
-      
+
       const replyId = replyResult.rows[0].id;
-      
+
       // If positive and matched to prospect, create follow-up
       if (sentiment === 'positive' && prospect) {
         await createFollowup(prospect.id, replyId);
-        
+
         // Mark reply as having follow-up created
         await client.query(`
           UPDATE outreach_replies SET follow_up_created = TRUE WHERE id = $1
         `, [replyId]);
       }
-      
+
       // Send Discord alert
       await sendDiscordAlert(prospect, { from_email: fromEmail, subject, body }, sentiment);
-      
+
       // Forward to monitoring emails
       await forwardReplyToEmails(prospect, { from_email: fromEmail, subject, body, received_at: receivedAt }, sentiment);
-      
+
       console.log(`Reply stored: ${replyId} | Sentiment: ${sentiment} | Prospect: ${prospect?.school || 'unmatched'}`);
-      
+
       return res.status(200).json({ success: true, replyId, sentiment });
-      
+
     } finally {
       client.release();
     }
-    
+
   } catch (err) {
     console.error('Resend webhook error:', err);
     return res.status(500).json({ error: 'Internal error' });
@@ -835,33 +811,49 @@ app.get('/api/auth/me', async (req, res) => {
   });
 });
 
-app.get('/api/auth/google', (req, res) => {
+app.get('/api/auth/google', async (req, res) => {
   if (!GOOGLE_CLIENT_ID)
     return res.status(500).json({ error: 'Google OAuth is not configured' });
 
-  // Default to the app, not the hub landing page
-  const appRedirect = req.query.redirect || '/apps/homeworkhelper';
-  const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
-    response_type: 'code',
-    scope: 'openid email profile',
-    access_type: 'online',
-    prompt: 'select_account',
-    state: Buffer.from(JSON.stringify({ redirect: appRedirect })).toString(
-      'base64'
-    ),
-  });
+  try {
+    // Default to the app, not the hub landing page
+    const appRedirect = req.query.redirect || '/apps/homeworkhelper';
 
-  return res.redirect(
-    302,
-    `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-  );
+    // Create opaque temp session ID and store state bound to it
+    const tempSessionId = createTempSessionId(req);
+    const { state } = await storeOAuthState({
+      sessionId: tempSessionId,
+      stateData: { redirect: appRedirect },
+      provider: 'google'
+    });
+    // Set short-lived HttpOnly SameSite=Lax cookie with opaque session ID
+    setTempSessionCookie(res, tempSessionId);
+
+    const params = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      response_type: 'code',
+      scope: 'openid email profile',
+      access_type: 'online',
+      prompt: 'select_account',
+      state,
+    });
+
+    return res.redirect(
+      302,
+      `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+    );
+  } catch {
+    clearTempSessionCookie(res);
+    return res.status(500).json({ error: 'Unable to start Google sign-in' });
+  }
 });
 
 app.get('/api/auth/google/callback', async (req, res) => {
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   const { code, state, error: googleError } = req.query;
+  // Always clear temp cookie on every callback outcome
+  clearTempSessionCookie(res);
 
   // Helper: return HTML page with JS redirect to ensure cookies are stored
   function htmlRedirect(url, title = 'Redirecting...') {
@@ -902,40 +894,33 @@ app.get('/api/auth/google/callback', async (req, res) => {
     <p>Redirecting...</p>
   </div>
   <script>
-    // Wait for cookies to be stored (SameSite=Lax needs time on cross-site nav)
-    const maxWait = 2000;
-    const start = Date.now();
-    const cookieNames = ['access_token', 'refresh_token'];
-    
-    function cookiesReady() {
-      return cookieNames.every(name => document.cookie.split('; ').some(row => row.startsWith(name + '=')));
-    }
-    
-    function attemptRedirect() {
-      if (cookiesReady() || Date.now() - start > maxWait) {
-        window.location.href = '${url}';
-      } else {
-        setTimeout(attemptRedirect, 50);
-      }
-    }
-    
-    setTimeout(attemptRedirect, 100);
-    
-    setTimeout(() => {
-      if (!cookiesReady()) {
-        document.write('<meta http-equiv="refresh" content="0;url=${url}">');
-      }
-    }, maxWait + 100);
+    // HttpOnly cookies are invisible to document.cookie, so we cannot poll for
+    // them; the old wait-loop + late document.write(meta refresh) blanked the
+    // page in Chrome. Navigate promptly via location.replace instead.
+    window.location.replace('${url}');
   </script>
 </body>
 </html>
     `);
   }
 
-  if (googleError) {
-    return htmlRedirect(`${FRONTEND_URL}/?auth_error=${encodeURIComponent(googleError)}`, 'Access Denied');
+  // Consume state BEFORE any token exchange or provider data processing
+  let stateData = null;
+  try {
+    const tempSessionId = getTempSessionCookie(req);
+    stateData = state && tempSessionId
+      ? await verifyAndConsumeOAuthState({ state, sessionId: tempSessionId, provider: 'google' })
+      : null;
+  } catch {
+    // DB failure during state verification - do not proceed to token exchange
+    return htmlRedirect(`${FRONTEND_URL}/auth?auth_error=invalid_state`, 'Sign In Failed');
   }
-  if (!code)
+  
+  if (!stateData) return htmlRedirect(`${FRONTEND_URL}/auth?auth_error=invalid_state`, 'Sign In Failed');
+  if (googleError) {
+    return htmlRedirect(`${FRONTEND_URL}/?auth_error=access_denied`, 'Access Denied');
+  }
+  if (typeof code !== 'string' || !code)
     return res.status(400).json({ error: 'Missing authorization code' });
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET)
     return res.status(500).json({ error: 'Google OAuth is not configured' });
@@ -956,7 +941,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
     const tokenText = await tokenResponse.text();
     if (!tokenResponse.ok) {
-      console.error('Google token exchange failed:', tokenText);
+      // Do not log raw token response - fixed generic error
       return htmlRedirect(`${FRONTEND_URL}/?auth_error=token_exchange_failed`, 'Sign In Failed');
     }
 
@@ -1051,7 +1036,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
       );
       const sessionId = sessionResult.rows[0].id;
 
-      const accessToken = createAccessToken(user);
+      const accessToken = createAccessToken(user, sessionId);
       const refreshToken = createRefreshToken(user.id, sessionId);
 
       const tokenHash = crypto
@@ -1068,16 +1053,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
       // 5. Redirect to frontend — use HTML with JS redirect to ensure cookies are stored
       let appRedirect = '/';
-      if (state) {
-        try {
-          const stateData = JSON.parse(
-            Buffer.from(
-              state.replace(/-/g, '+').replace(/_/g, '/'),
-              'base64'
-            ).toString('utf8')
-          );
-          if (stateData.redirect) appRedirect = stateData.redirect;
-        } catch { /* invalid state, default to / */ }
+      if (stateData?.redirect) {
+        appRedirect = stateData.redirect;
       }
 
       // Return HTML page with JS redirect — ensures cookies are stored before navigation
@@ -1092,7 +1069,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
   <title>Signing you in...</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
+    body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #fef7ee 0%, #fdf4e3 100%);
       min-height: 100vh;
@@ -1116,36 +1093,14 @@ app.get('/api/auth/google/callback', async (req, res) => {
 <body>
   <div class="loader">
     <div class="spinner" aria-label="Loading"></div>
-    <h1>Welcome back <span class="brand">Skyler</span></h1>
+    <h1>Welcome back <span class="brand">${user.name || 'User'}</span></h1>
     <p>Redirecting you to HomeworkHelper...</p>
   </div>
   <script>
-    // Wait for cookies to be stored (SameSite=Lax needs time on cross-site nav)
-    const maxWait = 2000; // max 2 seconds
-    const start = Date.now();
-    const cookieNames = ['access_token', 'refresh_token'];
-    
-    function cookiesReady() {
-      return cookieNames.every(name => document.cookie.split('; ').some(row => row.startsWith(name + '=')));
-    }
-    
-    function attemptRedirect() {
-      if (cookiesReady() || Date.now() - start > maxWait) {
-        window.location.href = '${redirectUrl}';
-      } else {
-        setTimeout(attemptRedirect, 50);
-      }
-    }
-    
-    // Start checking after a brief pause
-    setTimeout(attemptRedirect, 100);
-    
-    // Fallback: meta refresh after maxWait
-    setTimeout(() => {
-      if (!cookiesReady()) {
-        document.write('<meta http-equiv="refresh" content="0;url=${redirectUrl}">');
-      }
-    }, maxWait + 100);
+    // HttpOnly cookies are invisible to document.cookie, so we cannot poll for
+    // them; the old wait-loop + late document.write(meta refresh) blanked the
+    // page in Chrome. Navigate promptly via location.replace instead.
+    window.location.replace('${redirectUrl}');
   </script>
 </body>
 </html>
@@ -1154,7 +1109,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
       client.release();
     }
   } catch (error) {
-    console.error('Google callback error:', error);
+    console.error('Google callback failed');
     return res.redirect(303, `${FRONTEND_URL}/?auth_error=internal_error`);
   }
 });
@@ -1368,86 +1323,34 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
-  const emailTrimmed = email.trim().toLowerCase();
-  const client = await getClient();
   try {
-    const result = await client.query(
-      'SELECT id, email, password_hash FROM users WHERE email = $1',
-      [emailTrimmed]
-    );
-    const user = result.rows[0];
-    if (!user) {
-      return res.status(200).json({
-        message:
-          'If an account with that email exists, a reset link has been generated.',
-      });
-    }
-    if (!user.password_hash) {
-      return res.status(200).json({
-        message:
-          'This account uses Google sign-in and does not have a password to reset.',
-      });
-    }
-
-    const resetToken = createResetToken(user.id, user.email);
-    return res.status(200).json({
-      message:
-        'Password reset token generated. Use this token with /api/auth/reset-password.',
-      reset_token: resetToken,
-    });
-  } catch (error) {
-    console.error('Forgot password error:', error);
+    const result = await requestPasswordReset({ email });
+    return res.status(200).json({ message: result.message });
+  } catch {
+    // Fixed generic error - no internal details exposed
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    client.release();
   }
 });
 
 app.post('/api/auth/reset-password', async (req, res) => {
-  const { token, new_password } = req.body || {};
-  if (!token || !new_password)
+  const { token, email, new_password } = req.body || {};
+  if (typeof token !== 'string' || !token || typeof email !== 'string' || !email.trim() || typeof new_password !== 'string' || !new_password)
     return res
       .status(400)
-      .json({ error: 'Reset token and new password are required' });
-
-  let payload;
-  try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET not configured');
-    payload = jwt.verify(token, secret);
-    if (payload.purpose !== 'password_reset')
-      return res.status(400).json({ error: 'Invalid reset token' });
-  } catch (err) {
-    if (err.name === 'TokenExpiredError')
-      return res.status(400).json({
-        error: 'Reset token has expired. Please request a new one.',
-      });
-    return res.status(400).json({ error: 'Invalid or expired reset token' });
-  }
+      .json({ error: 'Reset token, email, and new password are required' });
 
   const pwCheck = validatePasswordStrength(new_password);
   if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.message });
 
-  const client = await getClient();
   try {
-    const newHash = await hashPassword(new_password);
-    const result = await client.query(
-      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
-      [newHash, payload.sub]
-    );
-    if (result.rowCount === 0)
-      return res.status(400).json({
-        error: 'User not found. The account may have been deleted.',
-      });
-    return res.status(200).json({
-      message:
-        'Password has been reset successfully. You can now log in with your new password.',
-    });
-  } catch (error) {
-    console.error('Reset password error:', error);
+    const result = await completePasswordReset({ token, email, newPassword: new_password });
+    if (!result.success) {
+      return res.status(400).json({ error: result.message, code: result.error });
+    }
+    return res.status(200).json({ message: result.message });
+  } catch {
+    // Fixed generic error - no internal details exposed
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    client.release();
   }
 });
 
@@ -1548,7 +1451,7 @@ app.patch('/api/user/preferences', async (req, res) => {
   if (!user) return;
 
   const { state_code, grade_level, subject } = req.body || {};
-  
+
   // Validate state_code if provided
   if (state_code !== undefined && state_code !== null && state_code !== '') {
     const validStates = [
@@ -1703,194 +1606,18 @@ app.delete('/api/user/custom-subjects/:subjectCode', async (req, res) => {
 
 // ── Billing / Subscription Endpoints ──────────────────────────────────
 
-// POST /api/billing/create-checkout-session — Start a new subscription with 7-day trial
-app.post('/api/billing/create-checkout-session', async (req, res) => {
+// Register the unified billing handlers before legacy definitions below so
+// checkout is single-plan-aware and status applies period-end entitlement.
+app.post('/api/billing/create-checkout-session', checkoutHandler);
+app.get('/api/billing/status', statusHandler);
+app.get('/api/billing/plans', plansHandler);
+app.get('/api/usage/ai', async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
-
-  const Stripe = (await import('stripe')).default;
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2024-12-18.acacia',
-  });
-
-  const client = await getClient();
-  try {
-    // Check if user already has a Stripe customer
-    const userResult = await client.query(
-      'SELECT stripe_customer_id, subscription_status, stripe_subscription_id FROM users WHERE id = $1',
-      [user.id]
-    );
-
-    if (userResult.rowCount === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const dbUser = userResult.rows[0];
-
-    // If user already has an active/trialing subscription, redirect to portal
-    if (dbUser.subscription_status === 'active' || dbUser.subscription_status === 'trialing') {
-      return res.status(400).json({
-        error: 'You already have an active subscription. Use the billing portal to manage it.',
-        code: 'SUBSCRIPTION_EXISTS',
-      });
-    }
-
-    let customerId = dbUser.stripe_customer_id;
-
-    // Create Stripe customer if needed
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name || user.email.split('@')[0],
-        metadata: { user_id: user.id },
-      });
-      customerId = customer.id;
-
-      await client.query(
-        'UPDATE users SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
-        [customerId, user.id]
-      );
-    }
-
-    // Get the price ID from env
-    const priceId = process.env.STRIPE_PRICE_ID;
-    if (!priceId) {
-      console.error('STRIPE_PRICE_ID not configured');
-      return res.status(500).json({ error: 'Billing not configured' });
-    }
-
-    // Create Checkout Session with 7-day trial
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      subscription_data: {
-        trial_period_days: 7,
-        metadata: { user_id: user.id },
-      },
-      success_url: `${process.env.APP_URL}/settings?billing=success`,
-      cancel_url: `${process.env.APP_URL}/settings?billing=canceled`,
-      metadata: { user_id: user.id },
-      allow_promotion_codes: true,
-    });
-
-    return res.status(200).json({ url: session.url });
-  } catch (error) {
-    console.error('Create checkout session error:', error);
-    return res.status(500).json({ error: 'Failed to create checkout session' });
-  } finally {
-    client.release();
-  }
+  return res.json(await getUsageSummary(user.id));
 });
 
-// POST /api/billing/create-checkout-session — Start a new subscription (supports monthly or annual)
-app.post('/api/billing/create-checkout-session', async (req, res) => {
-  const user = requireAuth(req, res);
-  if (!user) return;
-
-  const { planType } = req.body; // 'monthly' or 'annual'
-  const isAnnual = planType === 'annual';
-
-  const Stripe = (await import('stripe')).default;
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2024-12-18.acacia',
-  });
-
-  const client = await getClient();
-  try {
-    // Check if user already has a Stripe customer
-    const userResult = await client.query(
-      'SELECT stripe_customer_id, subscription_status, stripe_subscription_id FROM users WHERE id = $1',
-      [user.id]
-    );
-
-    if (userResult.rowCount === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const dbUser = userResult.rows[0];
-
-    // If user already has an active/trialing subscription, redirect to portal
-    if (dbUser.subscription_status === 'active' || dbUser.subscription_status === 'trialing') {
-      return res.status(400).json({
-        error: 'You already have an active subscription. Use the billing portal to manage it.',
-        code: 'SUBSCRIPTION_EXISTS',
-      });
-    }
-
-    let customerId = dbUser.stripe_customer_id;
-
-    // Create Stripe customer if needed
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name || user.email.split('@')[0],
-        metadata: { user_id: user.id },
-      });
-      customerId = customer.id;
-
-      await client.query(
-        'UPDATE users SET stripe_customer_id = $1, updated_at = NOW() WHERE id = $2',
-        [customerId, user.id]
-      );
-    }
-
-    // Get the price ID from env based on plan type
-    const priceId = isAnnual 
-      ? process.env.STRIPE_TEACHER_ANNUAL_PRICE_ID 
-      : process.env.STRIPE_PRICE_ID;
-      
-    if (!priceId) {
-      const missing = isAnnual ? 'STRIPE_TEACHER_ANNUAL_PRICE_ID' : 'STRIPE_PRICE_ID';
-      console.error(`${missing} not configured`);
-      return res.status(500).json({ error: 'Billing not configured' });
-    }
-
-    // Create Checkout Session
-    // Both monthly and annual are subscriptions
-    // Monthly: 7-day trial, bills monthly
-    // Annual: No trial, bills annually on purchase anniversary
-    const sessionParams = {
-      customer: customerId,
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${process.env.APP_URL}/settings?billing=success&plan=${isAnnual ? 'annual' : 'monthly'}`,
-      cancel_url: `${process.env.APP_URL}/settings?billing=canceled`,
-      metadata: { user_id: user.id, plan_type: isAnnual ? 'annual' : 'monthly' },
-      allow_promotion_codes: true,
-      subscription_data: {
-        metadata: { user_id: user.id, plan_type: isAnnual ? 'annual' : 'monthly' },
-      },
-    };
-
-    // Only add trial for monthly subscriptions
-    if (!isAnnual) {
-      sessionParams.subscription_data.trial_period_days = 7;
-    }
-
-    const session = await stripe.checkout.sessions.create(sessionParams);
-
-    return res.status(200).json({ url: session.url, planType: isAnnual ? 'annual' : 'monthly' });
-  } catch (error) {
-    console.error('Create checkout session error:', error);
-    return res.status(500).json({ error: 'Failed to create checkout session' });
-  } finally {
-    client.release();
-  }
-});
-
+// Unified routes keep checkout, status, and plan configuration consistent.
 // POST /api/billing/portal-session — Open Stripe Billing Portal
 app.post('/api/billing/portal-session', async (req, res) => {
   const user = requireAuth(req, res);
@@ -1928,84 +1655,9 @@ app.post('/api/billing/portal-session', async (req, res) => {
   }
 });
 
-// GET /api/billing/status — Get current subscription status
-app.get('/api/billing/status', async (req, res) => {
-  const user = requireAuth(req, res);
-  if (!user) return;
-
-  const client = await getClient();
-  try {
-    const userResult = await client.query(
-      `SELECT 
-         stripe_customer_id,
-         stripe_subscription_id,
-         stripe_subscription_status,
-         stripe_price_id,
-         stripe_current_period_end,
-         stripe_trial_end,
-         subscription_status
-       FROM users WHERE id = $1`,
-      [user.id]
-    );
-
-    if (userResult.rowCount === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const u = userResult.rows[0];
-
-    // Check if it's an annual plan
-    const isAnnual = u.stripe_subscription_id?.startsWith('annual_');
-
-    // Compute trial days remaining if in trial
-    let trialDaysRemaining = null;
-    if (u.subscription_status === 'trialing' && u.stripe_trial_end) {
-      const now = new Date();
-      const trialEnd = new Date(u.stripe_trial_end);
-      const diffMs = trialEnd - now;
-      if (diffMs > 0) {
-        trialDaysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      } else {
-        trialDaysRemaining = 0;
-      }
-    }
-
-    // Compute annual plan days remaining
-    let annualDaysRemaining = null;
-    if (isAnnual && u.stripe_current_period_end) {
-      const now = new Date();
-      const periodEnd = new Date(u.stripe_current_period_end);
-      const diffMs = periodEnd - now;
-      if (diffMs > 0) {
-        annualDaysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      } else {
-        annualDaysRemaining = 0;
-      }
-    }
-
-    return res.status(200).json({
-      subscription_status: u.subscription_status,
-      stripe_subscription_status: u.stripe_subscription_status,
-      stripe_subscription_id: u.stripe_subscription_id,
-      stripe_price_id: u.stripe_price_id,
-      current_period_end: u.stripe_current_period_end,
-      trial_end: u.stripe_trial_end,
-      trial_days_remaining: trialDaysRemaining,
-      annual_days_remaining: annualDaysRemaining,
-      is_annual_plan: isAnnual,
-      has_customer: !!u.stripe_customer_id,
-    });
-  } catch (error) {
-    console.error('Billing status error:', error);
-    return res.status(500).json({ error: 'Failed to fetch billing status' });
-  } finally {
-    client.release();
-  }
-});
-
 // ── Grading Endpoints ─────────────────────────────────────────────────
 
-app.post('/api/extract', async (req, res) => {
+app.post('/api/extract', requireSubscription, async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
@@ -2064,6 +1716,7 @@ app.post('/api/extract', async (req, res) => {
     }
 
     const data = await response.json();
+    let usage = data.usageMetadata;
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!text) throw new Error('Empty response from Gemini API');
 
@@ -2089,6 +1742,7 @@ app.post('/api/extract', async (req, res) => {
         throw new Error(`Gemini API retry error: ${response.status} - ${errText}`);
       }
       const retryData = await response.json();
+      usage = retryData.usageMetadata;
       const retryText =
         retryData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!retryText)
@@ -2101,6 +1755,8 @@ app.post('/api/extract', async (req, res) => {
     if (!Array.isArray(parsed))
       throw new Error('Expected JSON array response from Gemini');
 
+    await recordGeminiUsage({ userId: user.id, feature: 'handwriting_extraction', usage });
+
     return res.status(200).json(parsed);
   } catch (error) {
     console.error('Extract handwriting error:', error);
@@ -2108,7 +1764,7 @@ app.post('/api/extract', async (req, res) => {
   }
 });
 
-app.post('/api/extract-rubric', async (req, res) => {
+app.post('/api/extract-rubric', requireSubscription, async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
@@ -2150,6 +1806,7 @@ app.post('/api/extract-rubric', async (req, res) => {
     }
 
     const data = await response.json();
+    let usage = data.usageMetadata;
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!text) throw new Error('Empty response from Gemini API');
 
@@ -2180,6 +1837,7 @@ app.post('/api/extract-rubric', async (req, res) => {
         );
       }
       const retryData = await response.json();
+      usage = retryData.usageMetadata;
       const retryText =
         retryData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!retryText)
@@ -2191,6 +1849,8 @@ app.post('/api/extract-rubric', async (req, res) => {
 
     if (!Array.isArray(parsed))
       throw new Error('Expected JSON array response from Gemini');
+
+    await recordGeminiUsage({ userId: user.id, feature: 'rubric_extraction', usage });
 
     return res.status(200).json(parsed);
   } catch (error) {
@@ -2207,7 +1867,7 @@ app.post('/api/grade', async (req, res) => {
   const client = await getClient();
   try {
     const userResult = await client.query(
-      `SELECT 
+      `SELECT
          subscription_status,
          stripe_subscription_status,
          stripe_current_period_end,
@@ -2222,9 +1882,7 @@ app.post('/api/grade', async (req, res) => {
 
     const u = userResult.rows[0];
     const status = u.subscription_status || u.stripe_subscription_status;
-
-    // Check access - only 'trialing' and 'active' grant access
-    const hasAccess = status === 'active' || status === 'trialing';
+    const hasAccess = billingStatus(u).has_access;
 
     if (!hasAccess) {
       // Determine the specific reason for the lockout
@@ -2303,6 +1961,7 @@ app.post('/api/grade', async (req, res) => {
     }
 
     const data = await response.json();
+    let usage = data.usageMetadata;
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!text) throw new Error('Empty response from Gemini API');
 
@@ -2326,6 +1985,7 @@ app.post('/api/grade', async (req, res) => {
         );
       }
       const retryData = await response.json();
+      usage = retryData.usageMetadata;
       const retryText =
         retryData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if (!retryText)
@@ -2342,6 +2002,8 @@ app.post('/api/grade', async (req, res) => {
     )
       throw new Error('Invalid response structure from Gemini API');
 
+    await recordGeminiUsage({ userId: user.id, feature: 'grading', usage });
+
     return res.status(200).json(parsed);
   } catch (error) {
     console.error('Grade submission error:', error);
@@ -2351,7 +2013,7 @@ app.post('/api/grade', async (req, res) => {
 
 // ── Batch Grading ───────────────────────────────────────────────────────
 
-app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
+app.post('/api/batch-grade', upload.array('images', 50), requireSubscription, async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
 
@@ -2359,7 +2021,8 @@ app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
   const client = await getClient();
   try {
     const userResult = await client.query(
-      `SELECT subscription_status, stripe_subscription_status
+      `SELECT subscription_status, stripe_subscription_status,
+              stripe_current_period_end, stripe_trial_end
        FROM users WHERE id = $1`,
       [user.id]
     );
@@ -2368,7 +2031,7 @@ app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
     }
     const u = userResult.rows[0];
     const status = u.subscription_status || u.stripe_subscription_status;
-    const hasAccess = status === 'active' || status === 'trialing';
+    const hasAccess = billingStatus(u).has_access;
     if (!hasAccess) {
       return res.status(402).json({
         error: 'Active subscription required for batch grading',
@@ -2384,7 +2047,7 @@ app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
 
   // Parse multipart form data (images + config)
   // Expected: images[] (files), gradeLevel, subject, rubric?, standardsText?
-  const images = req.files?.images;
+  const images = req.files;
   const { gradeLevel, subject, rubric, standardsText } = req.body;
 
   if (!images || images.length === 0) {
@@ -2423,11 +2086,11 @@ app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
 
   // Process images sequentially (rate limit friendly)
   const results = [];
-  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
 
   for (let i = 0; i < images.length; i++) {
     const image = images[i];
-    const imageBase64 = image.data.toString('base64');
+    const imageBase64 = image.buffer.toString('base64');
     const mimeType = image.mimetype || 'image/jpeg';
 
     // Step 1: Extract questions from handwriting
@@ -2450,6 +2113,7 @@ app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
       const extractData = await extractResponse.json();
       const extractText = extractData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       extractedQuestions = JSON.parse(extractText.replace(/```json\n?|\n?```/g, '').trim());
+      await recordGeminiUsage({ userId: user.id, feature: 'batch_handwriting_extraction', usage: extractData.usageMetadata });
     } catch (err) {
       console.error(`Image ${i+1} extraction error:`, err);
       results.push({
@@ -2477,6 +2141,7 @@ app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
       const gradeData = await gradeResponse.json();
       const gradeText = gradeData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       gradeResult = JSON.parse(gradeText.replace(/```json\n?|\n?```/g, '').trim());
+      await recordGeminiUsage({ userId: user.id, feature: 'batch_grading', usage: gradeData.usageMetadata });
     } catch (err) {
       console.error(`Image ${i+1} grading error:`, err);
       results.push({
@@ -2506,8 +2171,8 @@ app.post('/api/batch-grade', upload.array('images', 50), async (req, res) => {
 
     // Update batch progress
     await getClient().then(c => c.query(
-      `UPDATE batch_grading_sessions SET completed_images = $1 WHERE id = $2`,
-      [i + 1, batchId]
+      `UPDATE batch_grading_sessions SET completed_images = $1, processed_count = $1, results = $2 WHERE id = $3`,
+      [i + 1, JSON.stringify(results), batchId]
     ).then(c => c.release()).catch(() => {}));
   }
 
@@ -2722,7 +2387,7 @@ app.post('/api/get-standard', (req, res) => {
   // Check if state has specific standards (non-Common Core)
   const stateInfo = states[stateCodeUpper];
   const hasStateStandards = stateInfo && stateInfo.source !== 'commonCore';
-  
+
   let data;
   let standardsSource;
   if (hasStateStandards && stateStandards[stateCodeUpper]) {
@@ -2734,7 +2399,7 @@ app.post('/api/get-standard', (req, res) => {
     data = commonCore;
     standardsSource = 'commonCore';
   }
-  
+
   if (!data)
     return res
       .status(500)
@@ -2770,146 +2435,6 @@ app.post('/api/get-standard', (req, res) => {
 });
 
 
-async function handleCheckoutCompleted(client, stripe, session) {
-  const userId = session.metadata?.user_id;
-  const planType = session.metadata?.plan_type; // 'monthly' or 'annual'
-  const isAnnual = planType === 'annual';
-  const subscriptionId = session.subscription;
-  const customerId = session.customer;
-
-  if (!userId) {
-    console.error('Missing metadata in checkout.session.completed:', session.id);
-    return;
-  }
-
-  // For both plans, we get a subscription object
-  if (!subscriptionId) {
-    console.error('Missing subscription in checkout.session.completed:', session.id);
-    return;
-  }
-
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-  // Convert Stripe Unix timestamps (seconds) to PostgreSQL timestamptz
-  const currentPeriodEnd = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000).toISOString()
-    : null;
-  const trialEnd = subscription.trial_end
-    ? new Date(subscription.trial_end * 1000).toISOString()
-    : null;
-
-  // For annual plans, set access period to 9 months from now
-  let accessPeriodEnd = currentPeriodEnd;
-  if (isAnnual) {
-    const nineMonthsFromNow = new Date();
-    nineMonthsFromNow.setMonth(nineMonthsFromNow.getMonth() + 9);
-    accessPeriodEnd = nineMonthsFromNow.toISOString();
-  }
-
-  await client.query(
-    `UPDATE users SET
-       stripe_customer_id = $1,
-       stripe_subscription_id = $2,
-       stripe_subscription_status = $3,
-       stripe_price_id = $4,
-       stripe_current_period_end = $5,
-       stripe_trial_end = $6,
-       stripe_access_period_end = $7,
-       subscription_status = 'active',
-       updated_at = NOW()
-     WHERE id = $8`,
-    [
-      customerId,
-      subscriptionId,
-      subscription.status,
-      subscription.items.data[0]?.price?.id || null,
-      currentPeriodEnd,
-      trialEnd,
-      accessPeriodEnd,
-      userId,
-    ]
-  );
-
-  console.log(`Checkout completed for user ${userId}: sub ${subscriptionId} status ${subscription.status} ${isAnnual ? '(annual)' : '(monthly)'}`);
-}
-
-async function handleSubscriptionUpdate(client, subscription) {
-  const subscriptionId = subscription.id;
-  const customerId = subscription.customer;
-
-  const userResult = await client.query(
-    'SELECT id FROM users WHERE stripe_customer_id = $1',
-    [customerId]
-  );
-
-  if (userResult.rowCount === 0) {
-    console.error(`No user found for customer ${customerId}`);
-    return;
-  }
-
-  const userId = userResult.rows[0].id;
-
-  // Convert Stripe Unix timestamps (seconds) to PostgreSQL timestamptz
-  const currentPeriodEnd = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000).toISOString()
-    : null;
-  const trialEnd = subscription.trial_end
-    ? new Date(subscription.trial_end * 1000).toISOString()
-    : null;
-
-  await client.query(
-    `UPDATE users SET
-       stripe_subscription_id = $1,
-       stripe_subscription_status = $2,
-       stripe_price_id = $3,
-       stripe_current_period_end = $4,
-       stripe_trial_end = $5,
-       updated_at = NOW()
-     WHERE id = $6`,
-    [
-      subscriptionId,
-      subscription.status,
-      subscription.items.data[0]?.price?.id || null,
-      currentPeriodEnd,
-      trialEnd,
-      userId,
-    ]
-  );
-
-  console.log(`Subscription updated for user ${userId}: sub ${subscriptionId} status ${subscription.status}`);
-}
-
-async function handleSubscriptionDeleted(client, subscription) {
-  const customerId = subscription.customer;
-
-  const userResult = await client.query(
-    'SELECT id FROM users WHERE stripe_customer_id = $1',
-    [customerId]
-  );
-
-  if (userResult.rowCount === 0) {
-    console.error(`No user found for customer ${customerId} on subscription delete`);
-    return;
-  }
-
-  const userId = userResult.rows[0].id;
-
-  await client.query(
-    `UPDATE users SET
-       stripe_subscription_id = NULL,
-       stripe_subscription_status = 'canceled',
-       stripe_price_id = NULL,
-       stripe_current_period_end = NULL,
-       stripe_trial_end = NULL,
-       updated_at = NOW()
-     WHERE id = $1`,
-    [userId]
-  );
-
-  console.log(`Subscription deleted for user ${userId}: sub ${subscription.id}`);
-}
-
-// ============================================================
 // GOOGLE CLASSROOM ROUTES
 // ============================================================
 
@@ -2918,10 +2443,23 @@ app.post('/api/classroom/connect', requireAuth, async (req, res) => {
   try {
     const userId = req.user.sub;
     const redirect = req.body?.redirect || '/classroom';
-    const authUrl = getClassroomAuthUrl({ redirect, userId });
+
+    // Store OAuth state with userId
+    const sessionId = await getSessionIdFromRequest(req, verifyAccessToken);
+    if (!sessionId) {
+      return res.status(401).json({ error: 'No valid session for Classroom connection' });
+    }
+
+    const { state } = await storeOAuthState({
+      sessionId,
+      stateData: { userId, redirect },
+      provider: 'classroom'
+    });
+
+    const authUrl = getClassroomAuthUrl({ redirect, userId, state });
     return res.json({ authUrl });
   } catch (error) {
-    console.error('Classroom connect error:', error);
+    console.error('Classroom connect failed');
     return res.status(500).json({ error: 'Failed to initiate Classroom connection' });
   }
 });
@@ -2930,54 +2468,57 @@ app.post('/api/classroom/connect', requireAuth, async (req, res) => {
 app.get('/api/classroom/callback', async (req, res) => {
   const { code, state, error: googleError } = req.query;
 
-  if (googleError) {
-    return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=${encodeURIComponent(googleError)}`);
+  // Classroom callback is browser navigation - cookie (access_token) is available
+  // Require session from access token AND valid state - reject missing/invalid
+  let sessionId = null;
+  let stateData = null;
+  try {
+    sessionId = await getSessionIdFromRequest(req, verifyAccessToken);
+  } catch {
+    // DB failure during session lookup
+    return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=invalid_state`);
   }
-  if (!code) return res.status(400).json({ error: 'Missing authorization code' });
+  
+  if (!sessionId) {
+    return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=no_session`);
+  }
+
+  // Consume state BEFORE any token exchange
+  try {
+    stateData = state
+      ? await verifyAndConsumeOAuthState({ state, sessionId, provider: 'classroom' })
+      : null;
+  } catch {
+    // DB failure during state verification - do not proceed to token exchange
+    return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=invalid_state`);
+  }
+  
+  if (!stateData) return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=invalid_state`);
+  if (googleError) {
+    return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=access_denied`);
+  }
+  if (typeof code !== 'string' || !code)
+    return res.status(400).json({ error: 'Missing authorization code' });
+
+  // Use state data ONLY after verification - no fallback to unbound lookup
+  const userId = stateData.userId;
+  if (!userId) {
+    return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=no_user_context`);
+  }
 
   try {
     const tokens = await exchangeClassroomCode(code);
-    
-    // Extract userId from state
-    let userId = null;
-    if (state) {
-      try {
-        const stateData = JSON.parse(
-          Buffer.from(state.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
-        );
-        userId = stateData.userId;
-      } catch { /* ignore */ }
-    }
-
-    // If no userId in state, try to get from session (fallback)
-    if (!userId) {
-      const accessToken = getCookie(req, 'access_token');
-      if (accessToken) {
-        const payload = verifyAccessToken(accessToken);
-        userId = payload?.sub;
-      }
-    }
-
-    if (!userId) {
-      return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=no_user_context`);
-    }
-
     await storeClassroomTokens(userId, tokens);
 
     // Redirect to frontend with success
     let appRedirect = '/classroom';
-    if (state) {
-      try {
-        const stateData = JSON.parse(
-          Buffer.from(state.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
-        );
-        if (stateData.redirect) appRedirect = stateData.redirect;
-      } catch { /* ignore */ }
+    if (stateData?.redirect) {
+      appRedirect = stateData.redirect;
     }
 
     return res.redirect(303, `${FRONTEND_URL}${appRedirect}?classroom_connected=true`);
   } catch (error) {
-    console.error('Classroom callback error:', error);
+    // Do not log raw provider error
     return res.redirect(303, `${FRONTEND_URL}/settings?classroom_error=callback_failed`);
   }
 });

@@ -3,9 +3,17 @@
  * Displays: status badge, trial days remaining, current period end, action buttons.
  */
 
+import { useEffect, useState } from 'react';
 import { useBilling } from '../contexts/BillingContext';
 
 export function BillingStatus() {
+  const [usage, setUsage] = useState(null);
+  useEffect(() => {
+    fetch('/api/usage/ai', { credentials: 'include' })
+      .then((response) => response.ok ? response.json() : null)
+      .then(setUsage)
+      .catch(() => {});
+  }, []);
   const { 
     status, 
     loading, 
@@ -127,9 +135,9 @@ export function BillingStatus() {
             <h3 className="text-lg font-semibold">{config.label}</h3>
             <p className="text-sm opacity-80">
               {status === 'trialing' 
-                ? '$20/month after trial ends'
+                ? '$5.99/month after trial ends'
                 : status === 'active'
-                ? '$20/month — renews automatically'
+                ? '$5.99/month — renews automatically'
                 : status === 'canceled'
                 ? 'Access continues until end of billing period'
                 : 'Update payment to restore access'}
@@ -218,6 +226,15 @@ export function BillingStatus() {
           </button>
         )}
       </div>
+
+      {usage && (
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">AI usage this month</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            {Number(usage.units).toLocaleString()} grading steps · {(Number(usage.input_tokens) + Number(usage.output_tokens)).toLocaleString()} tokens · estimated API cost ${Number(usage.estimated_cost_usd).toFixed(4)}
+          </p>
+        </div>
+      )}
 
       {/* Legal footnote */}
       <p className="text-xs text-gray-500 dark:text-gray-400 text-center">

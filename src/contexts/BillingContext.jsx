@@ -18,11 +18,12 @@ const BillingContext = createContext(null);
 
 export function BillingProvider({ children }) {
   const [status, setStatus] = useState(null);
+  const [hasSubscriptionAccess, setHasSubscriptionAccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Derived states
-  const hasAccess = status === 'trialing' || status === 'active';
+  const hasAccess = hasSubscriptionAccess;
   const isTrialing = status === 'trialing';
   const isActive = status === 'active';
   const isCanceled = status === 'canceled';
@@ -35,10 +36,12 @@ export function BillingProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         setStatus(data.subscription_status || data.status);
+        setHasSubscriptionAccess(data.has_access === true);
         setError(null);
       } else if (res.status === 401) {
         // Not authenticated - will be handled by auth context
         setStatus('no_subscription');
+        setHasSubscriptionAccess(false);
       } else {
         const err = await res.json().catch(() => ({}));
         setError(err.error || 'Failed to fetch subscription status');

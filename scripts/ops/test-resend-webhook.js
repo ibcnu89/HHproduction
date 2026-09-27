@@ -1,9 +1,9 @@
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 
-const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || 'whsec_xxxxxxxxxxxxx';
+const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 const ENDPOINT = process.env.TEST_ENDPOINT || 'http://localhost:3000/api/webhooks/resend/reply';
-const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_xxxxxxxxxxxxx';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 async function main() {
   // Create a mock email.received event (matching Resend's payload structure)

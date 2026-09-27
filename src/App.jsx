@@ -18,6 +18,8 @@ import HubLanding from './pages/HubLanding';
 import FeedbackPage from './pages/FeedbackPage';
 import DonatePage from './pages/DonatePage';
 import ProductsPage from './pages/ProductsPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 
 function GradingApp() {
   const { user, logout: authLogout } = useAuth();
@@ -439,6 +441,8 @@ function App() {
       <Routes>
         {/* Public Hub Routes */}
         <Route path="/" element={user ? <GradingApp /> : <HubLanding />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/donate" element={<DonatePage />} />

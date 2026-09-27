@@ -87,7 +87,7 @@ async function main() {
 
       try {
         await resend.emails.send({
-          from: 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>',
+          from: process.env.RESEND_FROM_EMAIL || 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>',
           to: user.email,
           subject: `Your trial ends ${trialEndDate} — keep grading on autopilot`,
           html,

@@ -20,6 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_batch_sessions_status ON batch_grading_sessions(s
 CREATE INDEX IF NOT EXISTS idx_batch_sessions_created ON batch_grading_sessions(created_at DESC);
 
 -- Updated_at trigger
+DROP TRIGGER IF EXISTS update_batch_grading_sessions_updated_at ON batch_grading_sessions;
 CREATE TRIGGER update_batch_grading_sessions_updated_at
   BEFORE UPDATE ON batch_grading_sessions
   FOR EACH ROW

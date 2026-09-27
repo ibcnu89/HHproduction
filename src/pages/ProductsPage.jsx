@@ -18,7 +18,7 @@ const products = [
     features: ['Photo-based grading', 'Custom rubrics', 'Handwritten work support', 'Batch grading', 'CSV export', 'Google Classroom sync'],
     color: 'primary',
     gradient: 'from-primary-400 via-primary-500 to-primary-600',
-    pricing: '$20/mo • 7-day free trial',
+    pricing: '$5.99/mo • 7-day free trial',
     screenshots: [],
   },
   {

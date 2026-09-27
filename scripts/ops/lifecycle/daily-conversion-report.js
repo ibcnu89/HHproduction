@@ -73,7 +73,7 @@ async function main() {
     );
 
     await resend.emails.send({
-      from: 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>',
+      from: process.env.RESEND_FROM_EMAIL || 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>',
       to: ADMIN_EMAIL,
       subject: `HH Conversion Report — ${targetDate}: ${rate}`,
       html: body,

@@ -97,7 +97,7 @@ export function DefaultSubscriptionFallback({ showTrial = true }) {
             Opening checkout...
           </span>
         ) : (
-          'Start Free Trial → $20/mo after 7 days'
+          'Start Free Trial → $5.99/mo after 7 days'
         )}
       </button>
 

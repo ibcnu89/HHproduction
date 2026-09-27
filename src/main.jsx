@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Analytics } from '@vercel/analytics/react'
 import * as Sentry from '@sentry/react'
-import { browserTracingIntegration, replayIntegration } from '@sentry/react'
+import { browserTracingIntegration } from '@sentry/react'
 import App from './App'
 import './index.css'
 import { captureUtmOnce } from './lib/utmCapture'
@@ -27,18 +27,8 @@ if (isValidSentryDsn(import.meta.env.VITE_SENTRY_DSN)) {
         // Set tracing origins to capture all API calls
         tracingOrigins: ['localhost', /^\//, 'https://letsmakeai.fun'],
       }),
-      replayIntegration({
-        // Capture 10% of all sessions
-        sessionSampleRate: 0.1,
-        // Capture 100% of sessions with errors
-        errorSampleRate: 1.0,
-        // Mask sensitive data
-        maskAllText: false,
-        blockAllMedia: false,
-      }),
     ],
     tracesSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1.0,
     release: import.meta.env.VITE_APP_VERSION || '1.0.0',
     // Don't send events in development
     enabled: import.meta.env.PROD,

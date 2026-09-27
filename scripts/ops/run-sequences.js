@@ -20,7 +20,7 @@ const pool = new Pool({
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const DISCORD_WEBHOOK = process.env.DISCORD_OPS_WEBHOOK;
-const FROM_EMAIL = 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>';
 
 // Default 6-touch sequence
 const DEFAULT_SEQUENCE = [

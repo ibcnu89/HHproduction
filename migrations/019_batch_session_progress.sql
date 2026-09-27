@@ -1,0 +1,3 @@
+ALTER TABLE batch_grading_sessions
+  ADD COLUMN IF NOT EXISTS completed_images INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;

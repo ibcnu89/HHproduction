@@ -143,3 +143,9 @@ vite.config.ts.timestamp-*
 .vite/
 .vercel
 vercel-api-backup/
+
+# Local supervisor/worker artifacts
+node_modules
+data/
+playwright-report/
+test-results/

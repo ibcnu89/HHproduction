@@ -30,7 +30,7 @@ const AB_TEST_NAME = 'first_touch_subject_v1';
 
 // ── Resend setup ────────────────────────────────────────────────────────
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Skyler @ HomeworkHelper <skyler@letsmakeai.fun>';
 const APP_URL = process.env.APP_URL || 'https://letsmakeai.fun';
 
 if (!RESEND_API_KEY) {

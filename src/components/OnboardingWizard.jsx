@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBilling } from '../contexts/BillingContext';
 import { useClassroomStatus, useClassroomConnect, useClassroomSync, useClassroomCourses, useClassroomAssignments } from '../hooks/useClassroom';
@@ -716,7 +716,7 @@ export default function OnboardingWizard({ onComplete, onSkip }) {
         <div className="px-4 py-3 border-b border-subtle dark:border-ink-700">
           <div className="flex items-center justify-between mb-2">
             {STEPS.map((s, i) => (
-              <React.Fragment key={s.id}>
+              <Fragment key={s.id}>
                 <div className="flex items-center">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
                     i < currentStep
@@ -739,7 +739,7 @@ export default function OnboardingWizard({ onComplete, onSkip }) {
                     }`} />
                   )}
                 </div>
-              </React.Fragment>
+              </Fragment>
             ))}
           </div>
           <div className="w-full bg-subtle dark:bg-ink-700 rounded-full h-1.5 overflow-hidden">

@@ -32,19 +32,13 @@ import {
   clearAuthCookies,
 } from '../../lib/cookies.js';
 import { requireAuth } from '../../lib/auth.js';
-import jwt from 'jsonwebtoken';
+import { requestPasswordReset, completePasswordReset } from '../../lib/password-reset.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 // Use GOOGLE_REDIRECT_URI from env (set in Railway) or derive from FRONTEND_URL
 const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${process.env.FRONTEND_URL}/api/auth/google/callback`;
-
-function createResetToken(userId, email) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('JWT_SECRET not configured');
-  return jwt.sign({ sub: userId, email, purpose: 'password_reset' }, secret, { expiresIn: '1h' });
-}
 
 async function makeSession(client, userId, userAgent) {
   const r = await client.query(
@@ -63,7 +57,7 @@ async function storeRefreshHash(client, sessionId, refreshToken) {
 }
 
 function issueCookies(res, user, sessionId, rememberMe) {
-  const accessToken = createAccessToken(user);
+  const accessToken = createAccessToken(user, sessionId);
   const refreshToken = createRefreshToken(user.id, sessionId, !!rememberMe);
   setAccessTokenCookie(res, accessToken);
   setRefreshTokenCookie(res, refreshToken, !!rememberMe);
@@ -298,31 +292,12 @@ async function handleForgotPassword(req, res) {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
-  const emailTrimmed = email.trim().toLowerCase();
-  const client = await getClient();
   try {
-    const result = await client.query(
-      'SELECT id, email, password_hash FROM users WHERE email = $1',
-      [emailTrimmed]
-    );
-    const user = result.rows[0];
-    if (!user) {
-      return res.status(200).json({ message: 'If an account with that email exists, a reset link has been generated.' });
-    }
-    if (!user.password_hash) {
-      return res.status(200).json({ message: 'This account uses Google sign-in and does not have a password to reset.' });
-    }
-
-    const resetToken = createResetToken(user.id, user.email);
-    return res.status(200).json({
-      message: 'Password reset token generated. Use this token with /api/auth/reset-password.',
-      reset_token: resetToken,
-    });
+    const result = await requestPasswordReset({ email });
+    return res.status(200).json({ message: result.message });
   } catch (error) {
-    console.error('Forgot password error:', error);
+    console.error('Forgot password failed');
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    client.release();
   }
 }
 
@@ -330,39 +305,19 @@ async function handleForgotPassword(req, res) {
 async function handleResetPassword(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { token, new_password } = req.body || {};
-  if (!token || !new_password) return res.status(400).json({ error: 'Reset token and new password are required' });
-
-  let payload;
-  try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET not configured');
-    payload = jwt.verify(token, secret);
-    if (payload.purpose !== 'password_reset') return res.status(400).json({ error: 'Invalid reset token' });
-  } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(400).json({ error: 'Reset token has expired. Please request a new one.' });
-    }
-    return res.status(400).json({ error: 'Invalid or expired reset token' });
-  }
+  const { token, email, new_password } = req.body || {};
+  if (!token || !email || !new_password) return res.status(400).json({ error: 'Reset token, email, and new password are required' });
 
   const pwCheck = validatePasswordStrength(new_password);
   if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.message });
 
-  const client = await getClient();
   try {
-    const newHash = await hashPassword(new_password);
-    const result = await client.query(
-      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
-      [newHash, payload.sub]
-    );
-    if (result.rowCount === 0) return res.status(400).json({ error: 'User not found. The account may have been deleted.' });
+    const result = await completePasswordReset({ token, email, newPassword: new_password });
+    if (!result.success) return res.status(400).json({ error: result.message, code: result.error });
     return res.status(200).json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
   } catch (error) {
-    console.error('Reset password error:', error);
+    console.error('Reset password failed');
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    client.release();
   }
 }
 

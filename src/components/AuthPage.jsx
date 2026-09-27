@@ -8,11 +8,11 @@ import { useAuth } from '../contexts/AuthContext';
  *
  * Login: email + password + remember me checkbox + Google button
  * Register: name + email + password + Google button
- * Forgot: email → calls /api/auth/forgot-password → shows reset token → switches to reset mode
- * Reset: token + new password → calls /api/auth/reset-password
+ * Forgot: email → sends a reset link
+ * Reset: token + email + new password → calls /api/auth/reset-password
  */
 
-function ForgotPasswordForm({ onGotToken }) {
+function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -33,9 +33,7 @@ function ForgotPasswordForm({ onGotToken }) {
         body: JSON.stringify({ email: email.trim() }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.reset_token) {
-        onGotToken(data.reset_token);
-      } else if (data.message) {
+      if (res.ok && data.message) {
         setError(data.message);
       } else {
         setError('Something went wrong. Please try again.');
@@ -50,7 +48,7 @@ function ForgotPasswordForm({ onGotToken }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm text-primary-600 dark:text-primary-400">
-        Enter your email and we'll generate a password reset token. Copy the token and paste it on the next screen.
+        Enter your email and we'll send a reset link if an account exists.
       </p>
       {error && (
         <div className="p-3 rounded-lg bg-warm-50 dark:bg-warm-900/30 border border-warm-200 dark:border-warm-800 text-warm-700 dark:text-warm-300 text-sm flex items-start gap-2">
@@ -68,13 +66,14 @@ function ForgotPasswordForm({ onGotToken }) {
       </div>
       <button type="submit" disabled={busy}
         className="w-full py-3 px-4 rounded-xl font-semibold text-base transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
-        {busy ? <><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Sending...</> : 'Generate Reset Token'}
+        {busy ? <><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Sending...</> : 'Send Reset Link'}
       </button>
     </form>
   );
 }
 
 function ResetPasswordForm({ resetToken, onDone }) {
+  const [email, setEmail] = useState(new URLSearchParams(window.location.search).get('email') || '');
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -83,6 +82,10 @@ function ResetPasswordForm({ resetToken, onDone }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    if (!email.trim() || !email.includes('@')) {
+      setError('Please enter a valid email');
+      return;
+    }
     if (!newPassword || newPassword.length < 8) {
       setError('Password must be at least 8 characters');
       return;
@@ -93,7 +96,7 @@ function ResetPasswordForm({ resetToken, onDone }) {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: resetToken, new_password: newPassword }),
+        body: JSON.stringify({ token: resetToken, email: email.trim(), new_password: newPassword }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -122,7 +125,7 @@ function ResetPasswordForm({ resetToken, onDone }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-sm text-primary-600 dark:text-primary-400">Enter your new password below.</p>
+      <p className="text-sm text-primary-600 dark:text-primary-400">Enter your email and new password below.</p>
       {error && (
         <div className="p-3 rounded-lg bg-warm-50 dark:bg-warm-900/30 border border-warm-200 dark:border-warm-800 text-warm-700 dark:text-warm-300 text-sm flex items-start gap-2">
           <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -131,6 +134,11 @@ function ResetPasswordForm({ resetToken, onDone }) {
           <span>{error}</span>
         </div>
       )}
+      <div>
+        <label htmlFor="reset-email" className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-1">Email</label>
+        <input id="reset-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email"
+          className="w-full px-4 py-3 border border-primary-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-primary-900 dark:text-primary-100" />
+      </div>
       <div>
         <label htmlFor="reset-password" className="block text-sm font-medium text-primary-700 dark:text-primary-300 mb-1">New Password</label>
         <input id="reset-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
@@ -149,7 +157,9 @@ function ResetPasswordForm({ resetToken, onDone }) {
 export default function AuthPage() {
   const { login, register, loginWithGoogle } = useAuth();
 
-  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot' | 'reset'
+  const query = new URLSearchParams(window.location.search);
+  const initialToken = query.get('token');
+  const [mode, setMode] = useState(initialToken ? 'reset' : (query.get('mode') === 'forgot' ? 'forgot' : 'login'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -157,7 +167,7 @@ export default function AuthPage() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null); // success message banner
   const [busy, setBusy] = useState(false);
-  const [resetToken, setResetToken] = useState(null);
+  const [resetToken, setResetToken] = useState(initialToken);
 
   const isLogin = mode === 'login';
   const isRegister = mode === 'register';
@@ -221,12 +231,6 @@ export default function AuthPage() {
     loginWithGoogle(); // redirects the browser, never throws
   };
 
-  const handleGotResetToken = (token) => {
-    setResetToken(token);
-    setMode('reset');
-    setError(null);
-  };
-
   const handleResetDone = () => {
     setMode('login');
     setResetToken(null);
@@ -288,7 +292,7 @@ export default function AuthPage() {
           )}
 
           {/* Content by mode */}
-          {isForgot && <ForgotPasswordForm onGotToken={handleGotResetToken} />}
+          {isForgot && <ForgotPasswordForm />}
           {isReset && <ResetPasswordForm resetToken={resetToken} onDone={handleResetDone} />}
 
           {/* Login/Register form */}

@@ -50,10 +50,10 @@ async function main() {
   console.log(`💰 Amount: $${(price.unit_amount / 100).toFixed(2)}/${price.recurring.interval}`);
   
   console.log('\n📋 Add these to Vercel Environment Variables:');
-  console.log(`STRIPE_PRICE_ID=${price.id}`);
-  console.log(`STRIPE_SECRET_KEY=${process.env.STRIPE_SECRET_KEY}`);
-  
-  console.log('\n🔗 Next steps:');
+    console.log(`STRIPE_PRICE_ID=${price.id}`);
+    console.log(`STRIPE_SECRET_KEY=sk_live_**** (hidden)`);
+
+    console.log('\n🔗 Next steps:');
   console.log('1. Add STRIPE_PRICE_ID to Vercel env vars');
   console.log('2. Run database migration: node migrate-billing.js');
   console.log('3. Set STRIPE_WEBHOOK_SECRET after registering webhook endpoint');
