@@ -38,7 +38,6 @@ import { storeOAuthState, verifyAndConsumeOAuthState, createTempSessionId, getSe
 import { safeAppRedirect } from './lib/redirect-safe.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import fs from 'fs';
 import Stripe from 'stripe';
 import multer from 'multer';
 import { getClassroomAuthUrl, exchangeClassroomCode, storeClassroomTokens, revokeClassroomTokens, getClassroomConnectionStatus } from './lib/google-classroom.js';
@@ -357,6 +356,29 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true }
 }));
+
+// ── Canonical-domain redirect: www → apex ───────────────────────────
+// letsmakeai.fun (apex) is the canonical production origin: Google
+// Console redirect URIs, FRONTEND_URL derivation, and user links all
+// use it. If a user starts at www, any OAuth state cookie set there is
+// a www host-only cookie and is NOT sent to the apex callback — a
+// dead-session flow. Redirect www requests to the apex origin BEFORE
+// authentication starts. Only the exact configured www host matches;
+// the destination is a fixed https://letsmakeai.fun origin, never
+// derived from the Host header (no Host-header/open-redirect vector).
+app.use((req, res, next) => {
+  const host = (req.headers.host || '').split(':')[0].toLowerCase();
+  const canonicalApex = (process.env.GOOGLE_REDIRECT_URI && new URL(process.env.GOOGLE_REDIRECT_URI).hostname)
+    || (process.env.APP_URL && new URL(process.env.APP_URL).hostname)
+    || (process.env.RAILWAY_PUBLIC_DOMAIN || '').replace(/^www\./, '');
+  if (!canonicalApex || canonicalApex === 'localhost' || canonicalApex === '') return next();
+  if (host === `www.${canonicalApex}`) {
+    const target = new URL(req.originalUrl || '/', `https://${canonicalApex}`);
+    return res.redirect(301, target.toString());
+  }
+  return next();
+});
+
 
 // ── Capture raw body for Stripe webhook AND Resend webhook BEFORE express.json ──────────
 const rawBodyMiddleware = (req, res, next) => {

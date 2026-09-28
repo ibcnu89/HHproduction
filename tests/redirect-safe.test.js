@@ -154,3 +154,67 @@ test('validated redirects can never compose into an executable JS string', () =>
     assert.ok(v.startsWith('/') && !v.startsWith('//'), 'same-origin relative only');
   }
 });
+
+// ── Canonical-domain (www → apex) middleware tests ──────────────────
+// The middleware lives inside server.js; the logic is exercised via a
+// faithful extraction, mirroring the route-harness technique used by
+// tests/auth.test.js: same source-of-truth code, no duplicates to drift.
+
+test('www→apex middleware redirects www to the canonical apex origin', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const vm = await import('node:vm');
+  const root = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
+  const source = readFileSync(`${root}/server.js`, 'utf8');
+  const marker = '// ── Canonical-domain redirect: www → apex ──';
+  const start = source.indexOf(marker);
+  assert.ok(start >= 0, 'middleware must exist in server.js');
+  const end = source.indexOf('// ── Capture raw body', start);
+  assert.ok(end > start);
+  const section = source.slice(start, end);
+  const redirects = [];
+  const context = {
+    res: {
+      redirect(code, url) { redirects.push({ code, url }); return 'redirected'; },
+    },
+    URL,
+    process: { env: { GOOGLE_REDIRECT_URI: 'https://letsmakeai.fun/api/auth/google/callback' } },
+  };
+  vm.runInNewContext(section + `
+    globalThis.__mw = app.use;`, { ...context, app: { use(fn) { globalThis.__mwFn = fn; } } });
+  const mw = globalThis.__mwFn;
+
+  // www host → 301 to apex, path + query preserved
+  redirects.length = 0;
+  let nextCalled = false;
+  let out = mw({ headers: { host: 'www.letsmakeai.fun' }, originalUrl: '/apps/homeworkhelper?x=1' }, context.res, () => { nextCalled = true; });
+  assert.equal(out, 'redirected');
+  assert.equal(redirects[0].code, 301);
+  assert.equal(redirects[0].url, 'https://letsmakeai.fun/apps/homeworkhelper?x=1');
+  assert.equal(nextCalled, false);
+
+  // apex host → passes through
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: { host: 'letsmakeai.fun' }, originalUrl: '/' }, context.res, () => { nextCalled = true; });
+  assert.equal(redirects.length, 0);
+  assert.equal(nextCalled, true);
+
+  // Host-header cannot pick the destination: attacker-supplied host on
+  // another domain is NOT redirected at all (only exact www.<apex> matches)
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: { host: 'evil.example' }, originalUrl: '/' }, context.res, () => { nextCalled = true; });
+  assert.equal(redirects.length, 0, 'foreign hosts must pass through untouched');
+  assert.equal(nextCalled, true);
+
+  // attacker-supplied www.evil.example must NOT redirect to anything
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: { host: 'www.evil.example' }, originalUrl: '/' }, context.res, () => { nextCalled = true; });
+  assert.equal(redirects.length, 0, 'www.<other-domain> must not redirect');
+  assert.equal(nextCalled, true);
+
+  // no Host header at all → pass through
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: {}, originalUrl: '/' }, context.res, () => { nextCalled = true; });
+  assert.equal(redirects.length, 0);
+  assert.equal(nextCalled, true);
+});

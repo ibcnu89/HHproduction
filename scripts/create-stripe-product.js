@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 /**
- * Create Stripe Product and Price for HomeworkHelper Pro
+ * Create Stripe Product and Price for the HomeworkHelper subscription.
  * Run: node scripts/create-stripe-product.js
- * Requires STRIPE_SECRET_KEY in environment
+ * Requires STRIPE_SECRET_KEY in environment.
+ *
+ * ⚠️ OPERATOR NOTE: production already has product prod_Usuc74WD77FKN2
+ * ("HomeworkHelper") with the live $5.99/month price. Running this script
+ * creates NEW duplicate objects — do NOT run it against the production
+ * account unless you intend to replace the billing configuration; wire
+ * the resulting STRIPE_PRICE_ID into Railway and update
+ * HOMEWORKHELPER_PRODUCT_ID in lib/billing.js if you do.
  */
 
 import Stripe from 'stripe';
@@ -17,11 +24,11 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('🔨 Creating Stripe Product: HomeworkHelper Pro...');
+  console.log('🔨 Creating Stripe Product: HomeworkHelper...');
   
   // Create Product
   const product = await stripe.products.create({
-    name: 'HomeworkHelper Pro',
+    name: 'HomeworkHelper',
     description: 'Unlimited AI grading for teachers — all subjects, all grade levels, custom rubrics, OCR handwriting extraction',
     metadata: {
       product_tier: 'pro',
@@ -31,10 +38,10 @@ async function main() {
   
   console.log(`✅ Product created: ${product.id}`);
   
-  // Create Price - $20/month recurring
+  // Create Price - $5.99/month recurring (the current intended plan)
   const price = await stripe.prices.create({
     product: product.id,
-    unit_amount: 2000, // $20.00 in cents
+    unit_amount: 599, // $5.99 in cents
     currency: 'usd',
     recurring: {
       interval: 'month',
@@ -49,14 +56,14 @@ async function main() {
   console.log(`✅ Price created: ${price.id}`);
   console.log(`💰 Amount: $${(price.unit_amount / 100).toFixed(2)}/${price.recurring.interval}`);
   
-  console.log('\n📋 Add these to Vercel Environment Variables:');
-    console.log(`STRIPE_PRICE_ID=${price.id}`);
-    console.log(`STRIPE_SECRET_KEY=sk_live_**** (hidden)`);
+  console.log('\n📋 Add these to Railway Environment Variables:');
+  console.log(`STRIPE_PRICE_ID=${price.id}`);
+  console.log('STRIPE_SECRET_KEY=sk_live_**** (hidden)');
 
-    console.log('\n🔗 Next steps:');
-  console.log('1. Add STRIPE_PRICE_ID to Vercel env vars');
-  console.log('2. Run database migration: node migrate-billing.js');
-  console.log('3. Set STRIPE_WEBHOOK_SECRET after registering webhook endpoint');
+  console.log('\n🔗 Next steps:');
+  console.log('1. Add STRIPE_PRICE_ID to the Railway service variables');
+  console.log('2. Set STRIPE_WEBHOOK_SECRET after registering the webhook endpoint');
+  console.log('3. Update STRIPE_PRODUCT_ID if the product ID changed');
   console.log('4. Deploy and test!');
   
   return { product, price };

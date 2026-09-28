@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS students (
 
 CREATE INDEX IF NOT EXISTS idx_students_teacher ON students(teacher_id);
 CREATE INDEX IF NOT EXISTS idx_students_classroom ON students(classroom_student_id, classroom_course_id);
+-- Idempotent trigger creation: safe to replay on databases where this
+-- trigger was already created outside the migration runner (legacy
+-- deployments) — replaying must not abort the run before newer
+-- migrations can apply.
+DROP TRIGGER IF EXISTS update_students_updated_at ON students;
 CREATE TRIGGER update_students_updated_at
   BEFORE UPDATE ON students
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

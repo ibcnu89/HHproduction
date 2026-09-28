@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { billingStatus, checkoutParameters, subscriptionValues, processBillingEvent, isMonthlyTargetPrice } from '../lib/billing.js';
+import { billingStatus, checkoutParameters, subscriptionValues, processBillingEvent, isMonthlyTargetPrice, HOMEWORKHELPER_PRODUCT_ID } from '../lib/billing.js';
 
 const now = Date.parse('2026-09-26T12:00:00Z');
 test('expired trials and expired paid periods do not grant access', () => {
@@ -27,13 +27,14 @@ test('checkout selects the configured interval and requires a valid plan', () =>
   assert.throws(() => checkoutParameters({ ...input, planType: 'invalid' }), /Invalid plan/);
 });
 
-test('configured monthly checkout price must be active at exactly USD 5.99/month', () => {
-  const target = { active: true, unit_amount: 599, currency: 'usd', recurring: { interval: 'month', interval_count: 1 } };
+test('configured monthly checkout price must be active at exactly USD 5.99/month on the HomeworkHelper product', () => {
+  const target = { active: true, unit_amount: 599, currency: 'usd', recurring: { interval: 'month', interval_count: 1 }, product: HOMEWORKHELPER_PRODUCT_ID };
   assert.equal(isMonthlyTargetPrice(target), true);
   assert.equal(isMonthlyTargetPrice({ ...target, unit_amount: 2000 }), false);
   assert.equal(isMonthlyTargetPrice({ ...target, currency: 'cad' }), false);
   assert.equal(isMonthlyTargetPrice({ ...target, recurring: { interval: 'year', interval_count: 1 } }), false);
   assert.equal(isMonthlyTargetPrice({ ...target, active: false }), false);
+  assert.equal(isMonthlyTargetPrice({ ...target, product: 'prod_unrelated' }), false);
 });
 
 test('supports item-level billing periods and retains a real trial status', () => {
@@ -53,4 +54,19 @@ test('webhook duplicate is skipped and failure rolls back for retry', async () =
   claimed = true;
   await assert.rejects(processBillingEvent(event, stripe, client), /provider unavailable/);
   assert.equal(calls.at(-1), 'ROLLBACK');
+});
+
+test('checkout price gate rejects a $5.99 monthly price on an unrelated product', async () => {
+  const { isMonthlyTargetPrice, HOMEWORKHELPER_PRODUCT_ID } = await import('../lib/billing.js');
+  const good = { active: true, unit_amount: 599, currency: 'usd', recurring: { interval: 'month', interval_count: 1 }, product: HOMEWORKHELPER_PRODUCT_ID };
+  assert.equal(isMonthlyTargetPrice(good), true);
+  // Same amount/currency/interval but a foreign product must fail:
+  const imposter = { ...good, product: 'prod_someOtherProduct' };
+  assert.equal(isMonthlyTargetPrice(imposter), false, 'foreign product must be rejected');
+  // Missing product must fail closed:
+  const noProduct = { active: true, unit_amount: 599, currency: 'usd', recurring: { interval: 'month', interval_count: 1 } };
+  assert.equal(isMonthlyTargetPrice(noProduct), false, 'missing product must fail closed');
+  // Wrong amount still rejected:
+  const old20 = { active: true, unit_amount: 2000, currency: 'usd', recurring: { interval: 'month', interval_count: 1 }, product: HOMEWORKHELPER_PRODUCT_ID };
+  assert.equal(isMonthlyTargetPrice(old20), false, 'old $20 price must be rejected');
 });
