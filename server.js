@@ -858,53 +858,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
   // Always clear temp cookie on every callback outcome
   clearTempSessionCookie(res);
 
-  // Helper: return HTML page with JS redirect to ensure cookies are stored
-  function htmlRedirect(url, title = 'Redirecting...') {
-    return res.send(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #fef7ee 0%, #fdf4e3 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .loader { text-align: center; animation: fadeIn 0.3s ease-out; }
-    .spinner {
-      width: 48px; height: 48px;
-      border: 4px solid #e5e7eb; border-top-color: #f59e0b; border-radius: 50%;
-      margin: 0 auto 24px; animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    h1 { color: #1f2937; font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; }
-    p { color: #6b7280; font-size: 0.95rem; }
-    .brand { color: #f59e0b; font-weight: 700; }
-  </style>
-</head>
-<body>
-  <div class="loader">
-    <div class="spinner" aria-label="Loading"></div>
-    <h1>${title}</h1>
-    <p>Redirecting...</p>
-  </div>
-  <script>
-    // HttpOnly cookies are invisible to document.cookie, so we cannot poll for
-    // them; the old wait-loop + late document.write(meta refresh) blanked the
-    // page in Chrome. Navigate promptly via location.replace instead.
-    window.location.replace('${url}');
-  </script>
-</body>
-</html>
-    `);
+  // Helper: plain HTTP redirect. Cookies ride along as Set-Cookie headers and
+  // are stored by the browser before the redirect is followed. No HTML
+  // documents and no inline <script> are emitted from this route at all —
+  // executable-JS interpolation is structurally impossible here.
+  function httpRedirect(url) {
+    return res.redirect(303, url);
   }
 
   // Consume state BEFORE any token exchange or provider data processing
@@ -916,12 +875,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
       : null;
   } catch {
     // DB failure during state verification - do not proceed to token exchange
-    return htmlRedirect(`${FRONTEND_URL}/auth?auth_error=invalid_state`, 'Sign In Failed');
+    return httpRedirect(`${FRONTEND_URL}/auth?auth_error=invalid_state`);
   }
   
-  if (!stateData) return htmlRedirect(`${FRONTEND_URL}/auth?auth_error=invalid_state`, 'Sign In Failed');
+  if (!stateData) return httpRedirect(`${FRONTEND_URL}/auth?auth_error=invalid_state`);
   if (googleError) {
-    return htmlRedirect(`${FRONTEND_URL}/?auth_error=access_denied`, 'Access Denied');
+    return httpRedirect(`${FRONTEND_URL}/?auth_error=access_denied`);
   }
   if (typeof code !== 'string' || !code)
     return res.status(400).json({ error: 'Missing authorization code' });
@@ -945,24 +904,24 @@ app.get('/api/auth/google/callback', async (req, res) => {
     const tokenText = await tokenResponse.text();
     if (!tokenResponse.ok) {
       // Do not log raw token response - fixed generic error
-      return htmlRedirect(`${FRONTEND_URL}/?auth_error=token_exchange_failed`, 'Sign In Failed');
+      return httpRedirect(`${FRONTEND_URL}/?auth_error=token_exchange_failed`);
     }
 
     let tokens;
     try {
       tokens = JSON.parse(tokenText);
     } catch {
-      return htmlRedirect(`${FRONTEND_URL}/?auth_error=token_exchange_failed`, 'Sign In Failed');
+      return httpRedirect(`${FRONTEND_URL}/?auth_error=token_exchange_failed`);
     }
 
     const { id_token } = tokens;
     if (!id_token)
-      return htmlRedirect(`${FRONTEND_URL}/?auth_error=no_id_token`, 'Sign In Failed');
+      return httpRedirect(`${FRONTEND_URL}/?auth_error=no_id_token`);
 
     // 2. Decode ID token
     const idParts = id_token.split('.');
     if (idParts.length !== 3)
-      return htmlRedirect(`${FRONTEND_URL}/?auth_error=invalid_id_token`, 'Sign In Failed');
+      return httpRedirect(`${FRONTEND_URL}/?auth_error=invalid_id_token`);
 
     const payload = JSON.parse(
       Buffer.from(
@@ -977,7 +936,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     const avatarUrl = payload.picture || null;
 
     if (!googleId || !email)
-      return htmlRedirect(`${FRONTEND_URL}/?auth_error=missing_user_info`, 'Sign In Failed');
+      return httpRedirect(`${FRONTEND_URL}/?auth_error=missing_user_info`);
 
     // 3. Lookup or create user
     const client = await getClient();
@@ -1006,7 +965,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
         if (existingEmail.rows.length > 0) {
           const existing = existingEmail.rows[0];
           if (existing.google_id) {
-            return htmlRedirect(`${FRONTEND_URL}/?auth_error=email_conflict`, 'Email Conflict');
+            return httpRedirect(`${FRONTEND_URL}/?auth_error=email_conflict`);
           }
           await client.query(
             'UPDATE users SET google_id = $1, email_verified = TRUE, avatar_url = COALESCE($2, avatar_url), name = COALESCE($3, name), updated_at = NOW() WHERE id = $4',
