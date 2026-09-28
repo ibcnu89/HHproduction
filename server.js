@@ -35,6 +35,7 @@ import { requireAuth } from './lib/auth.js';
 import { readUtmFromRequest } from './lib/utm.js';
 import { requestPasswordReset, completePasswordReset } from './lib/password-reset.js';
 import { storeOAuthState, verifyAndConsumeOAuthState, createTempSessionId, getSessionIdFromRequest, setTempSessionCookie, getTempSessionCookie, clearTempSessionCookie } from './lib/oauth-state.js';
+import { safeAppRedirect } from './lib/redirect-safe.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -816,8 +817,10 @@ app.get('/api/auth/google', async (req, res) => {
     return res.status(500).json({ error: 'Google OAuth is not configured' });
 
   try {
-    // Default to the app, not the hub landing page
-    const appRedirect = req.query.redirect || '/apps/homeworkhelper';
+    // Default to the app, not the hub landing page. Validate the
+    // user-supplied hint immediately — only same-origin application
+    // paths may ever be stored or honored (XSS/open-redirect guard).
+    const appRedirect = safeAppRedirect(req.query.redirect) ?? '/apps/homeworkhelper';
 
     // Create opaque temp session ID and store state bound to it
     const tempSessionId = createTempSessionId(req);
@@ -1051,60 +1054,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
       setAccessTokenCookie(res, accessToken);
       setRefreshTokenCookie(res, refreshToken);
 
-      // 5. Redirect to frontend — use HTML with JS redirect to ensure cookies are stored
-      let appRedirect = '/';
-      if (stateData?.redirect) {
-        appRedirect = stateData.redirect;
-      }
-
-      // Return HTML page with JS redirect — ensures cookies are stored before navigation
-      // This is the standard OAuth pattern to handle cookie timing issues
-      const redirectUrl = `${FRONTEND_URL}${appRedirect}`;
-      return res.send(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Signing you in...</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #fef7ee 0%, #fdf4e3 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .loader { text-align: center; animation: fadeIn 0.3s ease-out; }
-    .spinner {
-      width: 48px; height: 48px;
-      border: 4px solid #e5e7eb; border-top-color: #f59e0b; border-radius: 50%;
-      margin: 0 auto 24px; animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    h1 { color: #1f2937; font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; }
-    p { color: #6b7280; font-size: 0.95rem; }
-    .brand { color: #f59e0b; font-weight: 700; }
-  </style>
-</head>
-<body>
-  <div class="loader">
-    <div class="spinner" aria-label="Loading"></div>
-    <h1>Welcome back <span class="brand">${user.name || 'User'}</span></h1>
-    <p>Redirecting you to HomeworkHelper...</p>
-  </div>
-  <script>
-    // HttpOnly cookies are invisible to document.cookie, so we cannot poll for
-    // them; the old wait-loop + late document.write(meta refresh) blanked the
-    // page in Chrome. Navigate promptly via location.replace instead.
-    window.location.replace('${redirectUrl}');
-  </script>
-</body>
-</html>
-      `);
+      // 5. Redirect to the frontend. Cookies are Set-Cookie headers on this
+      // response and are stored by the browser before it follows the 303
+      // Location — no client-side script is needed (the old inline
+      // window.location.replace template was an XSS injection point).
+      const appRedirect = safeAppRedirect(stateData?.redirect) ?? '/';
+      return res.redirect(303, `${FRONTEND_URL}${appRedirect}`);
     } finally {
       client.release();
     }
@@ -1643,7 +1598,9 @@ app.post('/api/billing/portal-session', async (req, res) => {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${process.env.APP_URL}/settings`,
+      // FRONTEND_URL is apex-anchored (see derivation above) — raw APP_URL
+      // could drift to www and split auth cookies across origins.
+      return_url: `${FRONTEND_URL}/settings`,
     });
 
     return res.status(200).json({ url: session.url });
@@ -2442,7 +2399,8 @@ app.post('/api/get-standard', (req, res) => {
 app.post('/api/classroom/connect', requireAuth, async (req, res) => {
   try {
     const userId = req.user.sub;
-    const redirect = req.body?.redirect || '/classroom';
+    // Same-origin application paths only (XSS/open-redirect guard).
+    const redirect = safeAppRedirect(req.body?.redirect) ?? '/classroom';
 
     // Store OAuth state with userId
     const sessionId = await getSessionIdFromRequest(req, verifyAccessToken);
@@ -2510,12 +2468,8 @@ app.get('/api/classroom/callback', async (req, res) => {
     const tokens = await exchangeClassroomCode(code);
     await storeClassroomTokens(userId, tokens);
 
-    // Redirect to frontend with success
-    let appRedirect = '/classroom';
-    if (stateData?.redirect) {
-      appRedirect = stateData.redirect;
-    }
-
+    // Redirect to frontend with success — validated same-origin path only.
+    const appRedirect = safeAppRedirect(stateData?.redirect) ?? '/classroom';
     return res.redirect(303, `${FRONTEND_URL}${appRedirect}?classroom_connected=true`);
   } catch (error) {
     // Do not log raw provider error

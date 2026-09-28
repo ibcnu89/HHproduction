@@ -116,6 +116,7 @@ process.env.JWT_REFRESH_SECRET='supervisor-refresh-test-only';
 const oauth=await import(`${root}/lib/oauth-state.js`);
 const jwt=await import(`${root}/lib/jwt.js`);
 const classroom=await import(`${root}/lib/google-classroom.js`);
+const redirectSafe=await import(`${root}/lib/redirect-safe.js`);
 function res(){return {statusCode:200, cookies:{}, status(n){this.statusCode=n;return this},json(x){this.body=x;return this},send(x){this.body=x;return this},redirect(n,x){this.statusCode=n;this.location=x;return this},cookie(n,v,o){this.cookies[n]={value:v,...o};return this}}}
 function setup(){
  const records=new Map(); const statements=[]; const effects=[]; const logs=[];
@@ -124,7 +125,7 @@ function setup(){
  assert.match(sql,/UPDATE oauth_states/);assert.match(sql,/state_hash = \$1/);assert.match(sql,/session_id = \$2/);assert.match(sql,/provider = \$3/);assert.match(sql,/consumed_at IS NULL/);assert.match(sql,/expires_at > NOW\(\)/);assert.match(sql,/RETURNING state_data/);
  const r=records.get(p[0]);if(!r||r.session!==p[1]||r.provider!==p[2]||r.used||r.expires<=new Date())return {rows:[]};r.used=true;return {rows:[{state_data:r.data}]};},release(){}};
  const routes={};const app={get(p,...h){routes[p]=h.at(-1)},post(p,...h){routes[p]=h.at(-1)}};
- const context={app,...oauth,storeOAuthState:p=>oauth.storeOAuthState({...p,client}),verifyAndConsumeOAuthState:p=>oauth.verifyAndConsumeOAuthState({...p,client}),verifyAccessToken:jwt.verifyAccessToken,requireAuth(){},getClassroomAuthUrl:classroom.getClassroomAuthUrl,FRONTEND_URL:'https://example.test',GOOGLE_CLIENT_ID:'test-id',REDIRECT_URI:'https://example.test/api/auth/google/callback',requestPasswordReset:async()=>({message:'Generic reset message',token:'MUST_NOT_LEAK'}),completePasswordReset:async()=>({success:true,message:'Reset complete',token:'MUST_NOT_LEAK'}),validatePasswordStrength:()=>({valid:true}),process:{env:{GOOGLE_CLIENT_SECRET:'test-secret'}},URLSearchParams,Buffer,console:{error(...args){logs.push(args.map(String).join(' '))},warn(...args){logs.push(args.map(String).join(' '))},log(...args){logs.push(args.map(String).join(' '))}},fetch:async()=>{effects.push('exchange');return {ok:false,text:async()=> 'test rejection'}},exchangeClassroomCode:async()=>{effects.push('exchange');return {}},storeClassroomTokens:async(user)=>{effects.push(`store:${user}`)},getClient:async()=>{throw Error('Unexpected direct database fallback')}};
+ const context={app,...oauth,storeOAuthState:p=>oauth.storeOAuthState({...p,client}),verifyAndConsumeOAuthState:p=>oauth.verifyAndConsumeOAuthState({...p,client}),verifyAccessToken:jwt.verifyAccessToken,requireAuth(){},getClassroomAuthUrl:classroom.getClassroomAuthUrl,safeAppRedirect:redirectSafe.safeAppRedirect,FRONTEND_URL:'https://example.test',GOOGLE_CLIENT_ID:'test-id',REDIRECT_URI:'https://example.test/api/auth/google/callback',requestPasswordReset:async()=>({message:'Generic reset message',token:'MUST_NOT_LEAK'}),completePasswordReset:async()=>({success:true,message:'Reset complete',token:'MUST_NOT_LEAK'}),validatePasswordStrength:()=>({valid:true}),readUtmFromRequest:()=>({}),createAccessToken:jwt.createAccessToken,createRefreshToken:jwt.createRefreshToken,crypto,setAccessTokenCookie(r,t){r.cookie('access_token',t,{httpOnly:true})},setRefreshTokenCookie(r,t){r.cookie('refresh_token',t,{httpOnly:true})},process:{env:{GOOGLE_CLIENT_SECRET:'test-secret'}},URLSearchParams,Buffer,console:{error(...args){logs.push(args.map(String).join(' '))},warn(...args){logs.push(args.map(String).join(' '))},log(...args){logs.push(args.map(String).join(' '))}},fetch:async()=>{effects.push('exchange');return {ok:false,text:async()=> 'test rejection'}},exchangeClassroomCode:async()=>{effects.push('exchange');return {}},storeClassroomTokens:async(user)=>{effects.push(`store:${user}`)},getClient:async()=>{throw Error('Unexpected direct database fallback')}};
  const source=readFileSync(`${root}/server.js`,'utf8');
  for(const path of ['/api/auth/google','/api/auth/google/callback','/api/classroom/connect','/api/classroom/callback','/api/auth/forgot-password','/api/auth/reset-password']){
  const start=source.indexOf(`app.${(path.endsWith('connect')||path.endsWith('-password'))?'post':'get'}('${path}',`);assert.ok(start>=0);
@@ -291,4 +292,126 @@ test('OAuth provider failures never log or reflect token-bearing exceptions', as
     assert.doesNotMatch(JSON.stringify([h.logs, r.body, r.location]), /PRIVATE_PROVIDER_TOKEN/);
     assert.match(String(r.body ?? r.location), /auth_error|classroom_error/);
   }
+});
+
+// ── Post-auth redirect XSS regressions (audit P1) ─────────────────────
+// The Google callback used to interpolate the user-controlled "redirect"
+// hint (stored via ?redirect= at initiation) into an inline
+// window.location.replace('...') script tag. These tests pin the fixed
+// behavior end-to-end: malicious values are neutralized at initiation and
+// at consumption, the success response is a plain 303 Location (never HTML
+// with executable script), and only same-origin application paths survive.
+
+test('Google initiation stores only validated same-origin redirect hints', async () => {
+  const h = setup();
+  for (const evil of [
+    `';window.__PWNED=1;//`,
+    `</script><script>alert(1)</script>`,
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    '//attacker.example/',
+    'https://attacker.example/',
+    '/%2F%2Fattacker.example',
+    `/%27;alert(1);//`,
+    '/auth',
+    ' /leading-space',
+  ]) {
+    const r = res();
+    await h.routes['/api/auth/google']({ query: { redirect: evil }, headers: {} }, r);
+    // Route must have redirected to Google with a stored state.
+    assert.equal(r.statusCode, 302);
+    const state = new URL(r.location).searchParams.get('state');
+    const stored = h.records.get(crypto.createHash('sha256').update(state).digest('hex'));
+    assert.ok(stored, 'state must be stored');
+    assert.notEqual(stored.data.redirect, evil, 'malicious hint must not be stored verbatim');
+    assert.equal(redirectSafe.safeAppRedirect(stored.data.redirect), stored.data.redirect,
+      'stored hint must itself pass validation');
+  }
+  // A legitimate hint is preserved exactly.
+  const r2 = res();
+  await h.routes['/api/auth/google']({ query: { redirect: '/apps/homeworkhelper' }, headers: {} }, r2);
+  const s2 = new URL(r2.location).searchParams.get('state');
+  const stored2 = h.records.get(crypto.createHash('sha256').update(s2).digest('hex'));
+  assert.equal(stored2.data.redirect, '/apps/homeworkhelper');
+});
+
+test('Classroom connect stores only validated redirect hints', async () => {
+  const h = setup();
+  const token = jwt.createAccessToken({ id: 'user-A' }, 'browser-A');
+  for (const evil of [`';alert(1);//`, 'https://attacker.example/', '/login']) {
+    const r = res();
+    await h.routes['/api/classroom/connect']({ user: { sub: 'user-A' }, body: { redirect: evil }, headers: { cookie: `access_token=${token}` } }, r);
+    const state = new URL(r.body.authUrl).searchParams.get('state');
+    const stored = h.records.get(crypto.createHash('sha256').update(state).digest('hex'));
+    assert.notEqual(stored.data.redirect, evil);
+    assert.equal(redirectSafe.safeAppRedirect(stored.data.redirect), stored.data.redirect);
+  }
+  const rGood = res();
+  await h.routes['/api/classroom/connect']({ user: { sub: 'user-A' }, body: { redirect: '/classroom' }, headers: { cookie: `access_token=${token}` } }, rGood);
+  const st = new URL(rGood.body.authUrl).searchParams.get('state');
+  assert.equal(h.records.get(crypto.createHash('sha256').update(st).digest('hex')).data.redirect, '/classroom');
+});
+
+test('Google callback success responds with a plain 303 Location — no HTML, no inline script, no reflected payload', async () => {
+  const h = setup();
+  // Simulate the strongest attacker position: a malicious hint that somehow
+  // got stored (e.g. legacy rows from before validation existed).
+  const evil = `';window.__PWNED=1;//`;
+  const { state } = await oauth.storeOAuthState({ sessionId: 'browser-A', stateData: { redirect: evil }, provider: 'google', client: h.client });
+  // Force a successful exchange + user lookup + session creation.
+  h.context.fetch = async () => ({ ok: true, text: async () => JSON.stringify({ id_token: 'x.y.z' }) });
+  h.context.verifyIdToken = undefined;
+  // The callback decodes id_token manually: craft one with valid shape.
+  const part = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  h.context.fetch = async () => ({ ok: true, text: async () => JSON.stringify({ id_token: `${part({ alg: 'none' })}.${part({ sub: 'g-1', email: 'teacher@example.test', name: 'Teacher' })}.sig` }) });
+  const client = { async query(sql, p) {
+    if (/^SELECT id, email, name, avatar_url FROM users WHERE google_id/.test(sql)) return { rows: [{ id: 'u1', email: 'teacher@example.test', name: 'Teacher', avatar_url: null }] };
+    if (/^INSERT INTO sessions/.test(sql)) return { rows: [{ id: 'sess-1' }] };
+    if (/^UPDATE sessions/.test(sql)) return { rows: [] };
+    return { rows: [] };
+  }, release() {} };
+  h.context.getClient = async () => client;
+  const r = res();
+  await h.routes['/api/auth/google/callback']({ query: { code: 'c', state }, headers: { cookie: 'temp_session_id=browser-A' } }, r);
+  // Behavior: plain redirect, never an HTML document, never executable script.
+  assert.equal(r.statusCode, 303);
+  assert.ok(r.location, 'must have Location header');
+  assert.ok(!r.body || typeof r.body !== 'string' || !r.body.includes('<'), 'must not return an HTML body');
+  const bodyStr = JSON.stringify([r.body, r.location, h.logs]);
+  assert.doesNotMatch(bodyStr, /__PWNED|<script|location\.replace/, 'no payload/script leakage');
+  assert.ok(r.location.startsWith('https://example.test/'), 'same-origin only');
+  assert.ok(['https://example.test/', 'https://example.test/apps/homeworkhelper'].includes(r.location),
+    'must fall back to a safe path, got: ' + r.location);
+  // Auth cookies accompany the redirect.
+  assert.ok(r.cookies.access_token && r.cookies.refresh_token, 'cookies set on redirect response');
+});
+
+test('Google callback with legitimate redirect lands on the requested app path', async () => {
+  const h = setup();
+  const { state } = await oauth.storeOAuthState({ sessionId: 'browser-A', stateData: { redirect: '/apps/homeworkhelper' }, provider: 'google', client: h.client });
+  const part = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  h.context.fetch = async () => ({ ok: true, text: async () => JSON.stringify({ id_token: `${part({ alg: 'none' })}.${part({ sub: 'g-1', email: 'teacher@example.test', name: 'Teacher' })}.sig` }) });
+  const client = { async query(sql, p) {
+    if (/^SELECT id, email, name, avatar_url FROM users WHERE google_id/.test(sql)) return { rows: [{ id: 'u1', email: 'teacher@example.test', name: 'Teacher', avatar_url: null }] };
+    if (/^INSERT INTO sessions/.test(sql)) return { rows: [{ id: 'sess-1' }] };
+    if (/^UPDATE sessions/.test(sql)) return { rows: [] };
+    return { rows: [] };
+  }, release() {} };
+  h.context.getClient = async () => client;
+  const r = res();
+  await h.routes['/api/auth/google/callback']({ query: { code: 'c', state }, headers: { cookie: 'temp_session_id=browser-A' } }, r);
+  assert.equal(r.statusCode, 303);
+  assert.equal(r.location, 'https://example.test/apps/homeworkhelper');
+});
+
+test('Classroom callback success redirects only to validated same-origin paths', async () => {
+  const h = setup();
+  const evil = `https://attacker.example/steal`;
+  const { state } = await oauth.storeOAuthState({ sessionId: 'browser-A', stateData: { userId: 'user-A', redirect: evil }, provider: 'classroom', client: h.client });
+  const r = res();
+  await h.routes['/api/classroom/callback']({ query: { state, code: 'c' }, headers: { cookie: `access_token=${jwt.createAccessToken({ id: 'user-A' }, 'browser-A')}` } }, r);
+  assert.equal(r.statusCode, 303);
+  assert.ok(r.location.startsWith('https://example.test/'), 'same-origin only, got ' + r.location);
+  assert.doesNotMatch(r.location, /attacker\.example/, 'malicious origin must not appear');
+  assert.equal(r.location, 'https://example.test/classroom?classroom_connected=true');
 });
