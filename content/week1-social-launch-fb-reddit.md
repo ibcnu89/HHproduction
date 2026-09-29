@@ -4,7 +4,7 @@
 **Truth rule:** NO fabricated metrics. If the calendar says "47 teachers in trial" that's false today — we use real numbers or reframe. Free 7-day trial = real.
 
 **App URL for CTAs:** https://letsmakeai.fun
-**Trial:** free 7-day trial, card required, cancel anytime. $20/mo after.
+**Trial:** free 7-day trial, card required, cancel anytime. $5.99/mo after.
 
 ---
 
@@ -121,11 +121,11 @@ The whole stack is Node/Express + Neon Postgres. Open to specific questions on O
 
 **Facebook:**
 ```
-People ask "why would you price a grading tool at $20/mo when gradescope charges schools $3K+?"
+People ask "why would you price a grading tool at $5.99/mo when gradescope charges schools $3K+?"
 
 Because I'm not selling to a district. I'm selling to ONE teacher who's tired of weekends.
 
-$20/mo = the price of one late-night takeout. For that you get unlimited grading, all subjects, all standards, custom rubrics, export to your gradebook. No contract. Cancel anytime.
+$5.99/mo = the price of one late-night takeout. For that you get unlimited grading, all subjects, all standards, custom rubrics, export to your gradebook. No contract. Cancel anytime.
 
 The district tools are priced for procurement departments and take 6 months to buy. Teachers don't have 6 months — they have a stack of papers right now.
 

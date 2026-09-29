@@ -55,7 +55,7 @@ Click "Export CSV" → paste into PowerSchool / Google Classroom / Skyward / wha
 | **Day 4** | Batch-grade a full class set |
 | **Day 5** | Export to your gradebook |
 | **Day 6** | Decide: keep or cancel |
-| **Day 7** | **Trial ends** — card charged $20 unless cancelled |
+| **Day 7** | **Trial ends** — card charged $5.99 unless cancelled |
 
 **Cancel anytime** in Settings → Billing → Manage Subscription. No questions, no hoops.
 

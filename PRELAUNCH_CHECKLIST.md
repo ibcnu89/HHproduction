@@ -25,7 +25,7 @@
 - [ ] `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - OAuth configured
 - [ ] `STRIPE_SECRET_KEY` - Live key
 - [ ] `STRIPE_WEBHOOK_SECRET` - From Stripe Dashboard
-- [ ] `STRIPE_PRICE_ID` - `price_1TtFrED2UVcHtOLDoTU4YZ2c` ($20/mo)
+- [ ] `STRIPE_PRICE_ID` - `price_1UKAL1D2UVcHtOLDTNznsTEy` ($5.99/mo)
 - [ ] `RESEND_API_KEY` - `re_xxxxxxxxxxxxx` (get from Resend dashboard)
 - [ ] `DISCORD_OPS_WEBHOOK` - For ops alerts
 - [ ] `APP_URL` - `https://hhproduction-production.up.railway.app`
@@ -36,7 +36,7 @@
 
 ### Products & Pricing
 - [ ] Product: "HomeworkHelper Pro" (prod_UtHaku2ITtZJbU)
-- [ ] Price: $20.00/month recurring (price_1TtFrED2UVcHtOLDoTU4YZ2c)
+- [ ] Price: $5.99/month recurring (price_1UKAL1D2UVcHtOLDTNznsTEy)
 - [ ] Trial period: 7 days (configured in checkout session)
 
 ### Webhooks

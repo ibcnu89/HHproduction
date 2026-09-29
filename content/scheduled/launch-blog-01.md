@@ -74,7 +74,7 @@ I know because I built the tool that makes this 30 seconds per paper.
 
 ## What It Costs
 
-**$20/month.** That's it.
+**$5.99/month.** That's it.
 - No annual contract
 - 7-day free trial (card required, cancel anytime)
 - Unlimited grading, all subjects, all grade levels
@@ -103,7 +103,7 @@ Absolutely. Upload a photo or PDF of your answer key once → it becomes a reusa
 No student names, IDs, or PII ever touch our servers. Images are processed in-memory and deleted. We're not a data company — we're a grading tool.
 
 ### What if I only teach one subject?
-Still $20/mo. The value is time, not subject count. One subject at 5 classes = 150 papers/week = 7.5 hours saved.
+Still $5.99/mo. The value is time, not subject count. One subject at 5 classes = 150 papers/week = 7.5 hours saved.
 
 ---
 

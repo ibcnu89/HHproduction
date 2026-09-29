@@ -67,12 +67,12 @@ The other 30% is the part only you can do. Keep that. Let go of the rest.`,
     publish_at: '2026-09-09 09:00:00-05:00',
   },
   {
-    title: 'BTS — Why $20/mo',
-    text: `Why we charge $20/mo for HomeworkHelper:
+    title: 'BTS — Why $5.99/mo',
+    text: `Why we charge $5.99/mo for HomeworkHelper:
 
 – Costs us ~$2/mo in AI + infra per active teacher
 – Stripe takes ~$1
-– Leaves ~$17 to keep building, supporting, and not selling data
+– Leaves a little to keep building, supporting, and not selling data
 
 Free tools either sell your data, get acquired, or die. We want to be around in 5 years.`,
     meta: {

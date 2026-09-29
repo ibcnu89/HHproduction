@@ -285,7 +285,7 @@ export default function AccountSettings({ onClose }) {
               </div>
               {isTrialing && (
                 <p className="text-xs text-primary-500 dark:text-primary-400">
-                  $20/month after trial. Cancel anytime before it ends to avoid charges.
+                  $5.99/month after trial. Cancel anytime before it ends to avoid charges.
                 </p>
               )}
               {(isTrialing || isActive || isCanceled) ? (

@@ -13,7 +13,7 @@ I'd love to walk you through a live demo next week. It takes ~20 minutes, and I'
 
 Just reply with a day/time that works for you and I'll send the calendar invite. Or call me anytime at **618-841-8011** — happy to walk you through it on the phone first.
 
-The trial starts the moment we sign up, so your team can start grading real papers immediately. $20/mo per teacher after 7 days, cancel anytime.
+The trial starts the moment we sign up, so your team can start grading real papers immediately. $5.99/mo per teacher after 7 days, cancel anytime.
 
 Looking forward to getting your teachers their weekends back.
 

@@ -36,6 +36,7 @@ import { readUtmFromRequest } from './lib/utm.js';
 import { requestPasswordReset, completePasswordReset } from './lib/password-reset.js';
 import { storeOAuthState, verifyAndConsumeOAuthState, createTempSessionId, getSessionIdFromRequest, setTempSessionCookie, getTempSessionCookie, clearTempSessionCookie } from './lib/oauth-state.js';
 import { safeAppRedirect } from './lib/redirect-safe.js';
+import { safeHtml, escapeHtml } from './lib/html-escape.js';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import Stripe from 'stripe';
@@ -373,8 +374,38 @@ app.use((req, res, next) => {
     || (process.env.RAILWAY_PUBLIC_DOMAIN || '').replace(/^www\./, '');
   if (!canonicalApex || canonicalApex === 'localhost' || canonicalApex === '') return next();
   if (host === `www.${canonicalApex}`) {
-    const target = new URL(req.originalUrl || '/', `https://${canonicalApex}`);
-    return res.redirect(301, target.toString());
+    // SECURITY: the destination origin is a FIXED https://<apex> string.
+    // The request path may ONLY contribute a path+query — it is never
+    // resolved as a URL, so "//evil.example", "/\evil.example", encoded
+    // or backslash variants can never redirect off-origin.
+    // Express already decodes req.url exactly once; using req.url (not
+    // req.originalUrl) avoids re-decoding surprises from middleware
+    // rewrites. Path must remain a path: split at the first '?' and
+    // reject anything that still looks like a scheme/host reference.
+    let path = req.url || '/';
+    const qIndex = path.indexOf('?');
+    const pathOnly = qIndex === -1 ? path : path.slice(0, qIndex);
+    const query = qIndex === -1 ? '' : path.slice(qIndex);
+    // Reject paths that could resolve as a URL elsewhere in the chain:
+    // protocol-relative (//host), backslash forms, scheme-looking
+    // prefixes, and control characters. Legit app paths never match.
+    if (
+      pathOnly.startsWith('//') ||
+      pathOnly.includes('\\') ||
+      /^[a-z][a-z0-9+.-]*:/i.test(pathOnly) ||
+      /\/[a-z][a-z0-9+.-]*:/i.test(pathOnly) || // "/scheme:" anywhere — URL smuggled after a slash
+      /[\x00-\x1f\x7f]/.test(path)
+    ) {
+      if (pathOnly.startsWith('//') || pathOnly.includes('\\') || /^[a-z][a-z0-9+.-]*:/i.test(pathOnly)) {
+        // Confirmed off-origin smuggling attempt — drop the path AND
+        // query entirely; redirect to the canonical home only.
+        return res.redirect(301, `https://${canonicalApex}/`);
+      }
+      // Control characters only: keep the (sanitized) path shape out of
+      // the redirect entirely as well — canonical home.
+      return res.redirect(301, `https://${canonicalApex}/`);
+    }
+    return res.redirect(301, `https://${canonicalApex}${pathOnly}${query}`);
   }
   return next();
 });
@@ -382,7 +413,7 @@ app.use((req, res, next) => {
 
 // ── Capture raw body for Stripe webhook AND Resend webhook BEFORE express.json ──────────
 const rawBodyMiddleware = (req, res, next) => {
-  const isStripeWebhook = (req.path === '/api/billing/webhook' || req.path === '/api/billing/webhook/debug') && req.method === 'POST';
+  const isStripeWebhook = req.path === '/api/billing/webhook' && req.method === 'POST';
   const isResendWebhook = req.path === '/api/webhooks/resend/reply' && req.method === 'POST';
 
   if (isStripeWebhook || isResendWebhook) {
@@ -404,13 +435,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-12-18.acacia',
 });
 
-// ── TEMP: Webhook catcher for debugging ────────────────────────────────
-app.post('/api/billing/webhook/debug', (req, res) => {
-  console.log('[DEBUG Webhook] Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('[DEBUG Webhook] Raw body:', req.rawBody);
-  console.log('[DEBUG Webhook] Body:', req.body);
-  res.json({ received: true, rawBodyLength: req.rawBody?.length });
-});
+// (Removed) /api/billing/webhook/debug — an unauthenticated debug route
+// that logged arbitrary request headers/bodies. It had no production
+// consumers; Stripe always calls the configured webhook URL. The real
+// webhook below verifies signatures and never logs raw bodies.
 
 app.post('/api/billing/webhook', async (req, res) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -799,7 +827,9 @@ app.get('/api/outreach/unsubscribe', async (req, res) => {
       [token]
     );
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(`<!doctype html><html><head><title>Unsubscribed</title>
+    // Every dynamic value is escaped — stored prospect emails are
+    // attacker-controllable data and must render as inert text only.
+    res.send(safeHtml`<!doctype html><html><head><title>Unsubscribed</title>
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <style>body{font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:80px auto;padding:24px;text-align:center;color:#1e293b}
       .ok{font-size:48px;margin-bottom:16px}h1{font-size:24px;margin:0 0 8px}p{color:#64748b;line-height:1.5}a{color:#4a85ff;text-decoration:none}</style>

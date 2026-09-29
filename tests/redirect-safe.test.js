@@ -141,8 +141,8 @@ test('validated redirects can never compose into an executable JS string', () =>
   // Property check: whatever passes validation, when embedded in the kinds
   // of contexts attackers target (script string literal, HTML attribute,
   // Location header), must not break out. Validators pass => charset is
-  // [A-Za-z0-9._~!$&*+,;=:@/'()[\]-] with no control chars, so no quote,
-  // angle bracket, backslash, or % can appear.
+  // [A-Za-z0-9._~!$&*+,;=:@/()?,-] with no control chars, so no quote,
+  // angle bracket, backslash, square bracket, or % can appear.
   const passing = ['/apps/homeworkhelper', '/', '/grading?x=1&y=2', '/a(b)c'];
   for (const p of passing) {
     const v = safeAppRedirect(p);
@@ -184,37 +184,76 @@ test('www→apex middleware redirects www to the canonical apex origin', async (
     globalThis.__mw = app.use;`, { ...context, app: { use(fn) { globalThis.__mwFn = fn; } } });
   const mw = globalThis.__mwFn;
 
-  // www host → 301 to apex, path + query preserved
+  // www host → 301 to apex, path + query preserved (req.url now)
   redirects.length = 0;
   let nextCalled = false;
-  let out = mw({ headers: { host: 'www.letsmakeai.fun' }, originalUrl: '/apps/homeworkhelper?x=1' }, context.res, () => { nextCalled = true; });
+  let out = mw({ headers: { host: 'www.letsmakeai.fun' }, url: '/apps/homeworkhelper?x=1', originalUrl: '/apps/homeworkhelper?x=1' }, context.res, () => { nextCalled = true; });
   assert.equal(out, 'redirected');
   assert.equal(redirects[0].code, 301);
   assert.equal(redirects[0].url, 'https://letsmakeai.fun/apps/homeworkhelper?x=1');
   assert.equal(nextCalled, false);
 
+  // SECURITY (audit finding): "//evil.example/path" must stay on apex —
+  // the path may never resolve as a URL. It is dropped to the canonical home.
+  redirects.length = 0; nextCalled = false;
+  out = mw({ headers: { host: 'www.letsmakeai.fun' }, url: '//evil.example/path', originalUrl: '//evil.example/path' }, context.res, () => { nextCalled = true; });
+  assert.equal(out, 'redirected');
+  assert.equal(redirects[0].url, 'https://letsmakeai.fun/', 'protocol-relative path must collapse to apex home, never an external host');
+  assert.ok(!redirects[0].url.includes('evil.example'), 'no external host in destination');
+
+  // Backslash variant "/\evil.example" must also stay on apex
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: { host: 'www.letsmakeai.fun' }, url: '/\\evil.example/path', originalUrl: '/\\evil.example/path' }, context.res, () => { nextCalled = true; });
+  assert.equal(redirects[0].url, 'https://letsmakeai.fun/', 'backslash host-smuggling must collapse to apex home');
+
+  // Scheme-looking path "/https://evil.example" must stay on apex
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: { host: 'www.letsmakeai.fun' }, url: '/https://evil.example', originalUrl: '/https://evil.example' }, context.res, () => { nextCalled = true; });
+  assert.equal(redirects[0].url, 'https://letsmakeai.fun/', 'scheme-prefixed path must collapse to apex home');
+
+  // Encoded-slash variant: Express decodes %2F%2F before the route sees it;
+  // if it survives as literal "//" it must be dropped. Raw "%2F%2Fevil"
+  // in req.url: contains no control chars and no scheme, but starts with %
+  // — the middleware passes it through as an opaque path segment on the
+  // APEX origin, never as a URL. Verify it stays on-origin either way.
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: { host: 'www.letsmakeai.fun' }, url: '//%2F%2Fevil.example', originalUrl: '//%2F%2Fevil.example' }, context.res, () => { nextCalled = true; });
+  assert.ok(redirects[0]?.url.startsWith('https://letsmakeai.fun'), 'encoded variants must stay on apex');
+  assert.ok(!redirects[0]?.url.includes('evil.example'), 'encoded host must never appear in destination');
+
+  // Control characters in the path: redirect to apex home (never forwarded)
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: { host: 'www.letsmakeai.fun' }, url: '/ok\tpath', originalUrl: '/ok\tpath' }, context.res, () => { nextCalled = true; });
+  assert.ok(redirects[0]?.url.startsWith('https://letsmakeai.fun'), 'control-char path stays on apex');
+  assert.ok(!redirects[0]?.url.includes('\t'), 'control characters must not be forwarded');
+
+  // Malformed empty path → home
+  redirects.length = 0; nextCalled = false;
+  mw({ headers: { host: 'www.letsmakeai.fun' }, url: '', originalUrl: '' }, context.res, () => { nextCalled = true; });
+  assert.equal(redirects[0].url, 'https://letsmakeai.fun/');
+
   // apex host → passes through
   redirects.length = 0; nextCalled = false;
-  mw({ headers: { host: 'letsmakeai.fun' }, originalUrl: '/' }, context.res, () => { nextCalled = true; });
+  mw({ headers: { host: 'letsmakeai.fun' }, url: '/', originalUrl: '/' }, context.res, () => { nextCalled = true; });
   assert.equal(redirects.length, 0);
   assert.equal(nextCalled, true);
 
   // Host-header cannot pick the destination: attacker-supplied host on
   // another domain is NOT redirected at all (only exact www.<apex> matches)
   redirects.length = 0; nextCalled = false;
-  mw({ headers: { host: 'evil.example' }, originalUrl: '/' }, context.res, () => { nextCalled = true; });
+  mw({ headers: { host: 'evil.example' }, url: '/', originalUrl: '/' }, context.res, () => { nextCalled = true; });
   assert.equal(redirects.length, 0, 'foreign hosts must pass through untouched');
   assert.equal(nextCalled, true);
 
   // attacker-supplied www.evil.example must NOT redirect to anything
   redirects.length = 0; nextCalled = false;
-  mw({ headers: { host: 'www.evil.example' }, originalUrl: '/' }, context.res, () => { nextCalled = true; });
+  mw({ headers: { host: 'www.evil.example' }, url: '/', originalUrl: '/' }, context.res, () => { nextCalled = true; });
   assert.equal(redirects.length, 0, 'www.<other-domain> must not redirect');
   assert.equal(nextCalled, true);
 
   // no Host header at all → pass through
   redirects.length = 0; nextCalled = false;
-  mw({ headers: {}, originalUrl: '/' }, context.res, () => { nextCalled = true; });
+  mw({ headers: {}, url: '/', originalUrl: '/' }, context.res, () => { nextCalled = true; });
   assert.equal(redirects.length, 0);
   assert.equal(nextCalled, true);
 });

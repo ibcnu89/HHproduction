@@ -68,7 +68,7 @@ export default function TermsPage() {
             
             <h3 className="text-display-md text-ink font-semibold mt-6 mb-3">Pricing</h3>
             <p className="text-body text-ink-muted mb-4">
-              HomeworkHelper offers a 7-day free trial. After the trial, the subscription is <strong>$20/month</strong> billed monthly.
+              HomeworkHelper offers a 7-day free trial. After the trial, the subscription is <strong>$5.99/month</strong> billed monthly.
             </p>
 
             <h3 className="text-display-md text-ink font-semibold mt-6 mb-3">Payment Processing</h3>

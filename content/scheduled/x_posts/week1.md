@@ -48,7 +48,7 @@
 ### Day 3 (Wed) — Behind-the-Scenes
 **Category:** behind_the_scenes
 
-> Why we charge $20/mo for HomeworkHelper:
+> Why we charge $5.99/mo for HomeworkHelper:
 >
 > – Costs us ~$2/mo in AI + infra per active teacher
 > – Stripe takes ~$1

@@ -43,7 +43,7 @@ Here's how — and why I built HomeworkHelper for every teacher who's ever lost 
 ### Day 4
 **X**: "Day 4 of launch. 47 teachers in trial. Biggest surprise: 73% uploaded a custom rubric on Day 2."
 
-**LinkedIn**: Behind-the-scenes — "Why we charge $20/mo, not $9. The math on sustainable solo SaaS."
+**LinkedIn**: Behind-the-scenes — "Why we charge $5.99/mo, not $9. The math on sustainable solo SaaS."
 
 ---
 
